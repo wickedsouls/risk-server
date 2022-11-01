@@ -27,3 +27,4 @@ export class UsersRepository {
     await this.userRepo.deleteOne({ _id: id });
   }
 }
+
