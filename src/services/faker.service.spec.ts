@@ -1,5 +1,5 @@
 import { FakerService } from './faker.service';
-import { stringCheck } from '../utils/stringCheck';
+import { stringCheck } from '../utils/string-check';
 
 describe('faker service', () => {
   const faker = new FakerService();

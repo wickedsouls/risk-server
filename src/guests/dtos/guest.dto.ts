@@ -2,7 +2,7 @@ import { Expose, Transform } from 'class-transformer';
 
 export class GuestDto {
   @Expose()
-  name;
+  username;
 
   @Expose()
   @Transform((guest) => guest.value)

@@ -6,7 +6,6 @@ import { Guest, GuestSchema } from '../schemas/guest.schema';
 import { FakerService } from '../services/faker.service';
 import { getModelToken } from '@nestjs/mongoose';
 import { GuestsRepository } from './guests.repository';
-import { ErrorMessages } from '../constants/errorMessages';
 
 describe('GuestsService', () => {
   let service: GuestsService;
@@ -54,33 +53,33 @@ describe('GuestsService', () => {
     const guest2 = await service.createGuest();
     expect(guest1).toBeDefined();
     expect(guest2).toBeDefined();
-    expect(guest1.name).not.toBe(guest2.name);
+    expect(guest1.username).not.toBe(guest2.username);
   });
   it('should get all guests', async () => {
-    await guestModel.create({ name: 'one' });
-    await guestModel.create({ name: 'two' });
+    await guestModel.create({ username: 'one' });
+    await guestModel.create({ username: 'two' });
     const guests = await service.getAllGuests();
     expect(guests.length).toBe(2);
   });
   it('should delete all guests', async () => {
-    await guestModel.create({ name: 'one' });
-    await guestModel.create({ name: 'two' });
+    await guestModel.create({ username: 'one' });
+    await guestModel.create({ username: 'two' });
     await service.deleteAllGuests();
     const guests = await guestModel.find({});
     expect(guests.length).toBe(0);
   });
   it('should delete guest by id', async () => {
-    const guest = await guestModel.create({ name: 'one' });
+    const guest = await guestModel.create({ username: 'one' });
     await service.deleteGuest(guest._id);
     const guests = await guestModel.find({});
     expect(guests.length).toBe(0);
   });
   it('should delete old inactive guests', async () => {
-    await guestModel.create({ name: 'one', createdAt: new Date('2000-01-01') });
-    await guestModel.create({ name: 'two', createdAt: new Date('2020-01-01') });
+    await guestModel.create({ username: 'one', createdAt: new Date('2000-01-01') });
+    await guestModel.create({ username: 'two', createdAt: new Date('2020-01-01') });
     await service.deleteOldGuestsUpTo('2010-01-01');
     const guests = await guestModel.find({});
     expect(guests.length).toBe(1);
-    expect(guests[0].name).toBe('two');
+    expect(guests[0].username).toBe('two');
   });
 });

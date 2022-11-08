@@ -26,7 +26,7 @@ describe('UsersController', () => {
   it('should call find user by id', async () => {
     const user = await controller.getUserById('id');
     expect(user).toBeDefined();
-    expect(user.name).toEqual(userStub.user.name);
+    expect(user.username).toEqual(userStub.user.username);
   });
   it('should call delete user', async () => {
     const id = await controller.deleteUser('123');

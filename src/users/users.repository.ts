@@ -17,6 +17,13 @@ export class UsersRepository {
   ): Promise<UserDocument | undefined> {
     return this.userRepo.findOne({ [key]: value }).exec();
   }
+  getUserByUsernameOrEmail(value: string): Promise<UserDocument> {
+    return this.userRepo
+      .findOne({
+        $or: [{ email: value }, { username: value }],
+      })
+      .exec();
+  }
   getUserById(id: MongoIdOrString): Promise<UserDocument | undefined> {
     return this.userRepo.findById(id).exec();
   }
@@ -27,4 +34,3 @@ export class UsersRepository {
     await this.userRepo.deleteOne({ _id: id });
   }
 }
-

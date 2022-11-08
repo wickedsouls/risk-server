@@ -6,7 +6,7 @@ export const authTokenStubs = () => {
 
 export const authCredentialsStubs: { user: CreateUserDto } = {
   user: {
-    name: 'user',
+    username: 'user',
     password: 'secret',
     firstName: 'firstName',
     lastName: 'lastName',

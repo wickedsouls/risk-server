@@ -13,7 +13,7 @@ import { ResponseInterceptor } from '../interceptors/response.interceptor';
 import { UserDto } from './dtos/user.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 
-@Controller('users')
+@Controller('api/users')
 @UseInterceptors(new ResponseInterceptor(UserDto))
 export class UsersController {
   constructor(private usersService: UsersService) {}
@@ -25,9 +25,9 @@ export class UsersController {
   getUserById(@Param('id') id: string) {
     return this.usersService.getUserBy('_id', id);
   }
-  @Get('/name/:name')
-  getUserByName(@Param('name') name: string) {
-    return this.usersService.getUserBy('name', name);
+  @Get('/username/:username')
+  getUserByName(@Param('username') username: string) {
+    return this.usersService.getUserBy('username', username);
   }
   @Post()
   createUser(@Body() data: CreateUserDto) {

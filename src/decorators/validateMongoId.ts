@@ -1,6 +1,6 @@
 import { isValidObjectId } from 'mongoose';
 import { BadRequestException } from '@nestjs/common';
-import { ErrorMessages } from '../constants/errorMessages';
+import { HttpErrors } from '../constants/errors';
 
 export const ValidateMongoId = (): MethodDecorator => {
   return function (
@@ -12,7 +12,7 @@ export const ValidateMongoId = (): MethodDecorator => {
     descriptor.value = function (...args: string[]) {
       const [id] = args;
       if (!id || !isValidObjectId(id)) {
-        throw new BadRequestException(ErrorMessages.INVALID_ID);
+        throw new BadRequestException(HttpErrors.INVALID_ID);
       }
       return originalMethod.apply(this, args);
     };

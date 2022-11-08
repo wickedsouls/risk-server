@@ -6,7 +6,7 @@ import { connect, Connection, Model, Types } from 'mongoose';
 import { User, UserSchema } from '../schemas/user.schema';
 import { getModelToken } from '@nestjs/mongoose';
 import { userStub } from '../../test/stubs/user.stub';
-import { ErrorMessages } from '../constants/errorMessages';
+import { HttpErrors } from '../constants/errors';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -53,12 +53,12 @@ describe('UsersService', () => {
     it('should create new user', async () => {
       const user = await service.createUser(userStub.user);
       expect(user).toBeDefined();
-      expect(user.name).toBe(userStub.user.name);
+      expect(user.username).toBe(userStub.user.username);
     });
     it('should throw error on duplicate user', async () => {
       await userModel.create(userStub.user);
       await expect(() => service.createUser(userStub.user)).rejects.toThrow(
-        ErrorMessages.USER_ALREADY_EXISTS,
+        HttpErrors.USER_ALREADY_EXISTS,
       );
     });
   });
@@ -74,22 +74,20 @@ describe('UsersService', () => {
       const savedUser = await userModel.create(userStub.user);
       const user = await service.getUserById(savedUser._id);
       expect(user).toBeDefined();
-      expect(user.name).toBe(userStub.user.name);
+      expect(user.username).toBe(userStub.user.username);
     });
     it('should find user by name', async () => {
       await userModel.create(userStub.user);
-      const user = await service.getUserBy('name', userStub.user.name);
-      expect(user.name).toBe(userStub.user.name);
+      const user = await service.getUserBy('name', userStub.user.username);
+      expect(user.username).toBe(userStub.user.username);
     });
     it('should throw error on invalid id', async () => {
-      expect(() => service.getUserById('123')).toThrow(
-        ErrorMessages.INVALID_ID,
-      );
+      expect(() => service.getUserById('123')).toThrow(HttpErrors.INVALID_ID);
     });
     it('should throw error if user is not found', async () => {
       const id = new Types.ObjectId();
       await expect(() => service.getUserById(id)).rejects.toThrow(
-        ErrorMessages.USER_NOT_FOUND,
+        HttpErrors.USER_NOT_FOUND,
       );
     });
   });
@@ -104,7 +102,7 @@ describe('UsersService', () => {
     it('should throw error on invalid id', async () => {
       await userModel.create(userStub.user);
       await expect(() => service.deleteUser('123')).toThrow(
-        ErrorMessages.INVALID_ID,
+        HttpErrors.INVALID_ID,
       );
       const users = await userModel.find({});
       expect(users.length).toBe(1);
@@ -112,7 +110,7 @@ describe('UsersService', () => {
     it('should throw error if user is not found', async () => {
       const id = new Types.ObjectId();
       await expect(() => service.deleteUser(id)).rejects.toThrow(
-        ErrorMessages.USER_NOT_FOUND,
+        HttpErrors.USER_NOT_FOUND,
       );
     });
   });

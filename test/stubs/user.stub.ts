@@ -5,7 +5,7 @@ export const userStub: {
   userTwo: User;
 } = {
   user: {
-    name: 'user',
+    username: 'user',
     password: 'secret',
     createdAt: Date.now(),
     lastLoginAt: Date.now(),
@@ -14,7 +14,7 @@ export const userStub: {
     email: 'user@mail.com',
   },
   userTwo: {
-    name: 'user2',
+    username: 'user2',
     password: 'secret2',
     createdAt: Date.now(),
     lastLoginAt: Date.now(),

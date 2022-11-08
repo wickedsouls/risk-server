@@ -11,9 +11,8 @@ import { GuestsService } from './guests.service';
 import { ResponseInterceptor } from '../interceptors/response.interceptor';
 import { GuestDto } from './dtos/guest.dto';
 import { RealIP } from 'nestjs-real-ip';
-import * as moment from 'moment';
 
-@Controller('guests')
+@Controller('api/guests')
 @UseInterceptors(new ResponseInterceptor(GuestDto))
 export class GuestsController {
   constructor(private guestService: GuestsService) {}

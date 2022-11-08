@@ -7,7 +7,7 @@ export type GuestDocument = Document & Guest;
 @Schema()
 export class Guest {
   @Prop({ type: String, required: true })
-  name;
+  username;
   @Prop({ type: Date, default: Date.now() })
   createdAt;
   @Prop({ type: Date })

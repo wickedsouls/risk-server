@@ -3,7 +3,7 @@ import { IsOptional } from 'class-validator';
 
 export class CreateGuestDto {
   @Expose()
-  name;
+  username;
 
   @Expose()
   @IsOptional()

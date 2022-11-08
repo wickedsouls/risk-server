@@ -1,10 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { GuestsRepository } from './guests.repository';
 import { FakerService } from '../services/faker.service';
 import { ValidateMongoId } from '../decorators/validateMongoId';
 import { MongoIdOrString } from '../common/types';
-import * as moment from 'moment';
-import { ErrorMessages } from '../constants/errorMessages';
 
 @Injectable()
 export class GuestsService {
@@ -14,8 +12,8 @@ export class GuestsService {
   ) {}
 
   createGuest(ip?: string) {
-    const name = this.faker.createName();
-    return this.guestRepo.createGuest({ name, ip });
+    const username = this.faker.createName();
+    return this.guestRepo.createGuest({ username, ip });
   }
 
   getAllGuests() {

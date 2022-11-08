@@ -12,7 +12,7 @@ export class User {
     maxlength: 20,
     minlength: 3,
   })
-  name;
+  username;
   @Prop({ type: String, maxlength: 30, minlength: 3 })
   firstName;
   @Prop({ type: String, maxlength: 30, minlength: 3 })

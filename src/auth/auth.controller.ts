@@ -5,7 +5,7 @@ import { RegisterDto } from './dtos/register.dto';
 import { CreateUserDto } from '../users/dtos/create-user.dto';
 import { ResponseInterceptor } from '../interceptors/response.interceptor';
 
-@Controller('auth')
+@Controller('api/auth')
 @UseInterceptors(new ResponseInterceptor(RegisterDto))
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

@@ -6,6 +6,9 @@ import { DatabaseTest } from './db/DatabaseTest';
 import { isTestEnv } from './utils/environment';
 import { ConfigModule } from '@nestjs/config';
 import { GuestsModule } from './guests/guests.module';
+import { GatewayModule } from './gateways/gateway.module';
+import { GameModule } from './game/game.module';
+import { FakerModule } from './services/faker.module';
 
 @Module({
   imports: [
@@ -17,6 +20,9 @@ import { GuestsModule } from './guests/guests.module';
       isGlobal: true,
     }),
     GuestsModule,
+    GatewayModule,
+    GameModule,
+    FakerModule,
   ],
 })
 export class AppModule {}

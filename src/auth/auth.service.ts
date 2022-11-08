@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { AuthDto } from './dtos/auth.dto';
-import { PasswordEncryptionService } from './password-encryption.service';
+import { passwordEncryption } from '../utils/password-encription';
 import { plainToInstance } from 'class-transformer';
 import { UserDto } from '../users/dtos/user.dto';
 import { User } from '../schemas/user.schema';
@@ -13,16 +13,12 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly userService: UsersService,
-    private readonly passwordEncryptionService: PasswordEncryptionService,
   ) {}
 
   async validateUser(authDto: AuthDto) {
-    const { name, password } = authDto;
-    const user = await this.userService.getUserBy('name', name);
-    await this.passwordEncryptionService.verifyPassword(
-      password,
-      user.password,
-    );
+    const { username, password } = authDto;
+    const user = await this.userService.getUserByUsernameOrEmail(username);
+    await passwordEncryption.verifyPassword(password, user.password);
     return user;
   }
 
@@ -42,7 +38,7 @@ export class AuthService {
   }
 
   async register(createUserDto: CreateUserDto) {
-    const hashedPassword = await this.passwordEncryptionService.hashPassword(
+    const hashedPassword = await passwordEncryption.hashPassword(
       createUserDto.password,
     );
     const user = await this.userService.createUser({
