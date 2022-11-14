@@ -6,7 +6,7 @@ import { connect, Connection, Model, Types } from 'mongoose';
 import { User, UserSchema } from '../schemas/user.schema';
 import { getModelToken } from '@nestjs/mongoose';
 import { userStub } from '../../test/stubs/user.stub';
-import { HttpErrors } from '../constants/errors';
+import { HttpErrors } from '../common/errors';
 
 describe('UsersService', () => {
   let service: UsersService;

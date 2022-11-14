@@ -13,3 +13,11 @@ export const authCredentialsStubs: { user: CreateUserDto } = {
     email: 'email@email.com',
   },
 };
+
+export const registrationStubs: { user: CreateUserDto } = {
+  user: {
+    username: 'user1',
+    password: 'secret',
+    email: 'user@emailc.com',
+  },
+};

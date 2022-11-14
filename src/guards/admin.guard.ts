@@ -1,6 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { UserRole } from '../constants/users';
+
+export enum UserRole {
+  ADMIN = 'admin',
+}
 
 @Injectable()
 export class AdminGuard implements CanActivate {

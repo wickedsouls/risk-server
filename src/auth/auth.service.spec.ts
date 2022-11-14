@@ -10,10 +10,9 @@ import { UsersService } from '../users/users.service';
 import { UsersRepository } from '../users/users.repository';
 import { getModelToken } from '@nestjs/mongoose';
 import { authCredentialsStubs } from '../../test/stubs/auth.stubs';
-import { HttpErrors } from '../constants/errors';
+import { HttpErrors } from '../common/errors';
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
-import { passwordEncryption } from '../utils/password-encription';
 
 dotenv.config();
 

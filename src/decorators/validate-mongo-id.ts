@@ -1,6 +1,6 @@
 import { isValidObjectId } from 'mongoose';
 import { BadRequestException } from '@nestjs/common';
-import { HttpErrors } from '../constants/errors';
+import { HttpErrors } from '../common/errors';
 
 export const ValidateMongoId = (): MethodDecorator => {
   return function (

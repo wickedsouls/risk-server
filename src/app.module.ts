@@ -9,6 +9,7 @@ import { GuestsModule } from './guests/guests.module';
 import { GatewayModule } from './gateways/gateway.module';
 import { GameModule } from './game/game.module';
 import { FakerModule } from './services/faker.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { FakerModule } from './services/faker.module';
     GatewayModule,
     GameModule,
     FakerModule,
+    ChatModule,
   ],
 })
 export class AppModule {}

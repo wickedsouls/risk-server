@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { GuestsRepository } from './guests.repository';
 import { FakerService } from '../services/faker.service';
-import { ValidateMongoId } from '../decorators/validateMongoId';
+import { ValidateMongoId } from '../decorators/validate-mongo-id';
 import { MongoIdOrString } from '../common/types';
 
 @Injectable()

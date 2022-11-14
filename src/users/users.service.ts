@@ -6,8 +6,8 @@ import {
 import { UsersRepository } from './users.repository';
 import { MongoIdOrString } from '../common/types';
 import { CreateUserDto } from './dtos/create-user.dto';
-import { HttpErrors } from '../constants/errors';
-import { ValidateMongoId } from '../decorators/validateMongoId';
+import { HttpErrors } from '../common/errors';
+import { ValidateMongoId } from '../decorators/validate-mongo-id';
 import { UserDocument } from '../schemas/user.schema';
 
 @Injectable()

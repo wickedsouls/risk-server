@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GameService } from './game.service';
-import { GameStatus } from './interface';
-import { WsErrors } from '../constants/errors';
+import { GameStatus } from './types';
+import { gameStub, playerStub } from '../../test/stubs/game.stub';
+import { GameErrors } from '../common/errors';
 
 describe('GameService', () => {
   let service: GameService;
@@ -18,111 +19,168 @@ describe('GameService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('create game', () => {
+  describe('Create game', () => {
     it('should create public game', async () => {
-      const game = await service.createGame({});
-      expect(service.games[game.gameId]).toBeDefined();
-      expect(service.games[game.gameId].gameId).toBe(game.gameId);
-      expect(service.games[game.gameId].gameStatus).toBe(
-        GameStatus.Registering,
-      );
+      const game = await service.createGame(gameStub(), playerStub());
+      expect(game).toBeDefined();
+      expect(game.gameId).toBeDefined();
+      expect(game.gameStatus).toBe(GameStatus.Registering);
+      expect(service);
+      expect(game.isPrivate).toBeFalsy();
+      expect(game.minPlayers).toBe(2);
+      expect(game.maxPlayers).toBe(6);
+      expect(game.createdBy).toMatchObject(playerStub());
     });
     it('should create private game', async () => {
-      const game = await service.createGame({
-        password: 'secret',
-        isPrivate: true,
-      });
-      expect(service.games[game.gameId]).toBeDefined();
-      expect(service.games[game.gameId].password).not.toBe('secret');
-      expect(service.games[game.gameId].isPrivate).toBe(true);
+      const game = await service.createGame(
+        gameStub({ isPrivate: true, password: 'secret' }),
+        playerStub(),
+      );
+      expect(game.isPrivate).toBeTruthy();
+      expect(game.password).not.toBe('secret');
+    });
+    it('should throw if game is private without password', async () => {
+      await expect(async () => {
+        await service.createGame(
+          gameStub({ isPrivate: true, password: undefined, minPlayers: 1 }),
+          playerStub(),
+        );
+      }).rejects.toThrow(GameErrors.PASSWORD_IS_REQUIRED);
+    });
+    it('should throw if player has already created a game', () => {
+      // Implement later
     });
   });
 
-  describe('get games', () => {
+  describe('Get games', () => {
     it('should return all games', async () => {
-      await service.createGame({});
-      await service.createGame({});
+      await service.createGame(gameStub(), playerStub());
       const games = service.getAllGames();
-      expect(Object.keys(games).length).toBe(2);
-    });
-    it('should get game by its name', async () => {
-      const createdGame = await service.createGame({});
-      const game = service.getGameByName(createdGame.gameId);
-      expect(game).toBeDefined();
-      expect(game.gameId).toBe(createdGame.gameId);
-    });
-    it('should return undefined if game is not found', async () => {
-      await service.createGame({});
-      expect(service.getGameByName('bad name')).toBe(undefined);
+      expect(Object.keys(games).length).toBe(1);
+      const gameId = Object.keys(games)[0];
+      expect(games[gameId].createdAt).toBeDefined();
     });
   });
 
-  describe('game preparation', () => {
-    it('should start the game', async () => {
-      const game = await service.createGame({});
-      service.startGame(game.gameId);
-      expect(game.gameStatus).toBe(GameStatus.InProgress);
-    });
+  describe('Game preparation', () => {
     it('should join game', async () => {
-      const userId = '123';
-      const { gameId } = await service.createGame({});
-      service.joinTheGame(userId, gameId);
+      const { gameId } = await service.createGame(gameStub(), playerStub());
+      service.joinTheGame(gameId, playerStub());
       const game = service.games[gameId];
       expect(game.players.length).toBe(1);
-      expect(game.players).toContain(userId);
+      expect(game.players).toMatchObject([playerStub()]);
+    });
+    it('should throw error if game is not found', async () => {
+      await expect(async () => {
+        await service.joinTheGame('123', playerStub());
+      }).rejects.toThrow(GameErrors.GAME_NOT_FOUND);
     });
     it('should throw error if game is full', async () => {
-      const { gameId } = await service.createGame({});
-      service.joinTheGame('01', gameId);
-      service.joinTheGame('02', gameId);
-      service.joinTheGame('03', gameId);
-      service.joinTheGame('04', gameId);
-      service.joinTheGame('05', gameId);
-      service.joinTheGame('06', gameId);
-      expect(() => service.joinTheGame('07', gameId)).toThrow(
-        WsErrors.GAME_IS_FULL,
+      const { gameId } = await service.createGame(
+        gameStub({ maxPlayers: 2 }),
+        playerStub(),
       );
+      await service.joinTheGame(gameId, playerStub());
+      await service.joinTheGame(gameId, playerStub({ id: '2', username: '2' }));
+      await expect(
+        async () =>
+          await service.joinTheGame(
+            gameId,
+            playerStub({ id: '3', username: '3' }),
+          ),
+      ).rejects.toThrow(GameErrors.GAME_IS_FULL);
     });
-    it('should throw error if player is already joined', async () => {
-      const { gameId } = await service.createGame({});
-      service.joinTheGame('01', gameId);
-      expect(() => service.joinTheGame('01', gameId)).toThrow(
-        WsErrors.ALREADY_REGISTERED,
+    it('should not join if player is already registered', async () => {
+      const { gameId, players } = await service.createGame(
+        gameStub(),
+        playerStub(),
       );
+      await service.joinTheGame(gameId, playerStub());
+      await service.joinTheGame(gameId, playerStub());
+      expect(players.length).toBe(1);
     });
-    // it('should throw error if player is already in other game', async () => {
-    //   const game1 = await service.createGame({});
-    //   const game2 = await service.createGame({});
-    //   service.joinTheGame('01', game1.gameId);
-    //   expect(() => service.joinTheGame('01', game2.gameId)).toThrow(
-    //     WsErrors.GAME_IS_FULL,
-    //   );
-    // });
+    it('should trow if no or bad password is provided', async () => {
+      const { gameId } = await service.createGame(
+        gameStub({ isPrivate: true, password: 'secret' }),
+        playerStub(),
+      );
+      await expect(
+        async () => await service.joinTheGame(gameId, playerStub(), 'wrong1'),
+      ).rejects.toThrow();
+    });
+    it('should join private game with password', async () => {
+      const { gameId } = await service.createGame(
+        gameStub({ isPrivate: true, password: 'secret' }),
+        playerStub(),
+      );
+      const game = await service.joinTheGame(gameId, playerStub(), 'secret');
+      expect(game).toBeDefined();
+    });
     it('should throw error if player joining on started game', async () => {
-      const { gameId } = await service.createGame({});
-      service.startGame(gameId);
-      expect(() => service.joinTheGame('01', gameId)).toThrow(
-        WsErrors.REGISTRATION_HAS_ENDED,
-      );
-    });
-    it('should return all joined players of the game', async () => {
-      const { gameId } = await service.createGame({});
-      const userId1 = '01';
-      const userId2 = '02';
-      service.joinTheGame(userId1, gameId);
-      service.joinTheGame(userId2, gameId);
-      const players = service.getJoinedPlayers(gameId);
-      expect(players.length).toBe(2);
-      expect(players).toContain(userId1);
-      expect(players).toContain(userId2);
+      // TODO, create this when start game is ready
     });
     it('player should be able to leave the game', async () => {
-      const { gameId } = await service.createGame({});
-      const userId1 = '01';
-      service.joinTheGame(userId1, gameId);
-      service.leaveTheGame(userId1, gameId);
-      const game = service.getGameByName(gameId);
-      expect(game.players.length).toBe(0);
+      const { gameId } = await service.createGame(gameStub(), playerStub());
+      service.joinTheGame(gameId, playerStub());
+      service.joinTheGame(gameId, playerStub({ id: '2', username: '2' }));
+      service.leaveTheGame(gameId, playerStub().id);
+      expect(service.games[gameId].players.length).toBe(1);
+    });
+    it('should delete the game if all players leave', async () => {
+      const { gameId } = await service.createGame(gameStub(), playerStub());
+      await service.joinTheGame(gameId, playerStub());
+      service.leaveTheGame(gameId, playerStub().id);
+      expect(service.games[gameId]).toBeUndefined();
+    });
+    it('should cancel the game', async () => {
+      const { gameId } = await service.createGame(gameStub(), playerStub());
+      service.cancelGame(gameId, playerStub().id);
+      expect(service.games[gameId]).toBeUndefined();
+    });
+    it('should throw if not creator cancels it', async () => {
+      const { gameId } = await service.createGame(gameStub(), playerStub());
+      expect(() => {
+        service.cancelGame(gameId, 'other');
+      }).toThrow(GameErrors.UNAUTHORIZED);
+    });
+    it('should throw if game is in progress', async () => {
+      // TODO: implement that later
+    });
+    it('should start game', async () => {
+      const { gameId } = await service.createGame(
+        gameStub({ minPlayers: 1 }),
+        playerStub(),
+      );
+      service.joinTheGame(gameId, playerStub());
+      const { gameStatus } = service.startGame(gameId, playerStub().id);
+      expect(gameStatus).toBe(GameStatus.InProgress);
+    });
+    it('should fail to start if not the owner starts it', async () => {
+      const { gameId } = await service.createGame(
+        gameStub({ minPlayers: 1 }),
+        playerStub(),
+      );
+      service.joinTheGame(gameId, playerStub());
+      expect(() => {
+        service.startGame(gameId, 'other');
+      }).toThrow(GameErrors.UNAUTHORIZED);
+    });
+    it('should fail to start if game status is not registering', async () => {
+      const { gameId } = await service.createGame(
+        gameStub({ minPlayers: 1 }),
+        playerStub(),
+      );
+      service.joinTheGame(gameId, playerStub());
+      expect(() => {
+        service.startGame(gameId, playerStub().id);
+        service.startGame(gameId, playerStub().id);
+      }).toThrow(GameErrors.BAD_REQUEST);
+    });
+    it('should fail to start with too few players', async () => {
+      const { gameId } = await service.createGame(gameStub(), playerStub());
+      expect(() => {
+        service.startGame(gameId, playerStub().id);
+      }).toThrow(GameErrors.BAD_REQUEST);
     });
   });
 });

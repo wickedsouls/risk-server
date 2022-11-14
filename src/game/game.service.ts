@@ -1,68 +1,109 @@
 import { Injectable } from '@nestjs/common';
-import { WsException } from '@nestjs/websockets';
 import { faker } from '../utils/faker';
-import { CreateGameData, Game, GameStatus } from './interface';
+import { Game, GameStatus, Player } from './types';
+import { GameErrors } from '../common/errors';
+import { CreateGameDto } from '../gateways/dtos/create-game.dto';
 import { passwordEncryption } from '../utils/password-encription';
-import { WsErrors } from '../constants/errors';
 
 @Injectable()
 export class GameService {
   games: { [key: string]: Game } = {};
 
-  startGame(name: string) {
-    this.games[name].gameStatus = GameStatus.InProgress;
+  static gameError(message: GameErrors) {
+    return { error: true, message };
   }
 
-  leaveTheGame(userId: string, name: string) {
-    const players = this.games[name].players.filter((user) => user !== userId);
-    this.games[name].players = players;
+  private getGameById(gameId: string): Game {
+    if (!gameId || !this.games[gameId]) {
+      throw new Error(GameErrors.GAME_NOT_FOUND);
+    } else {
+      return this.games[gameId];
+    }
   }
 
-  joinTheGame(userId: string, name: string) {
-    const game = this.games[name];
-    if (!game) {
-      throw new WsException(WsErrors.GAME_NOT_FOUND);
+  startGame(gameId: string, playerId: string) {
+    const game = this.getGameById(gameId);
+    if (game.players.length < game.minPlayers) {
+      throw new Error(GameErrors.BAD_REQUEST);
     }
     if (game.gameStatus !== GameStatus.Registering) {
-      throw new WsException(WsErrors.REGISTRATION_HAS_ENDED);
+      throw new Error(GameErrors.BAD_REQUEST);
+    }
+    if (game.createdBy.id !== playerId) {
+      throw new Error(GameErrors.UNAUTHORIZED);
+    }
+    game.gameStatus = GameStatus.InProgress;
+    return game;
+  }
+
+  leaveTheGame(gameId: string, playerId: string) {
+    const game = this.getGameById(gameId);
+    this.games[gameId].players = game.players.filter(
+      (player) => player.id !== playerId,
+    );
+    if (game.players.length === 0) {
+      delete this.games[gameId];
+    }
+    return game;
+  }
+
+  async joinTheGame(gameId: string, player: Player, password?: string) {
+    const game = this.getGameById(gameId);
+    if (game.isPrivate) {
+      const match = await passwordEncryption.verifyPassword(
+        password,
+        game.password,
+      );
+      if (!match) throw new Error(GameErrors.INVALID_PASSWORD);
+    }
+    if (game.gameStatus === GameStatus.Completed) {
+      throw new Error(GameErrors.GAME_HAS_ENDED);
     }
     if (game.maxPlayers === game.players.length) {
-      throw new WsException(WsErrors.GAME_IS_FULL);
+      throw new Error(GameErrors.GAME_IS_FULL);
     }
-    if (game.players.includes(userId)) {
-      throw new WsException(WsErrors.ALREADY_REGISTERED);
+    if (!game.players.find((p) => p.id === player.id)) {
+      game.players.push(player);
     }
-    return game.players.push(userId);
+    return game;
   }
 
-  getJoinedPlayers(name: string) {
-    return this.games[name].players;
-  }
-
-  async createGame(data: CreateGameData): Promise<Game> {
-    const { isPrivate, password } = data;
+  async createGame(data: CreateGameDto, player: Player) {
+    const { isPrivate, password, maxPlayers, minPlayers } = data;
+    if (isPrivate && !password) {
+      throw new Error(GameErrors.PASSWORD_IS_REQUIRED);
+    }
+    let hash: string;
+    if (isPrivate) {
+      hash = await passwordEncryption.hashPassword(password);
+    }
     const gameId = faker.createName();
     const game: Game = {
       players: [],
       isPrivate,
       currentPlayer: '',
       gameId,
-      maxPlayers: 6,
-      minPlayers: 2,
+      password: hash || password,
+      maxPlayers,
+      minPlayers,
+      createdBy: player,
       gameStatus: GameStatus.Registering,
+      createdAt: new Date(),
     };
-    if (isPrivate) {
-      game.password = await passwordEncryption.hashPassword(password);
-    }
     this.games[gameId] = game;
     return game;
   }
 
-  getAllGames() {
-    return this.games;
+  cancelGame(gameId: string, userId: string) {
+    const { createdBy } = this.getGameById(gameId);
+    if (createdBy.id !== userId) {
+      throw new Error(GameErrors.UNAUTHORIZED);
+    }
+    this.games[gameId] = undefined;
+    // if(game)
   }
 
-  getGameByName(name: string): Game | undefined {
-    return this.games[name];
+  getAllGames() {
+    return this.games;
   }
 }

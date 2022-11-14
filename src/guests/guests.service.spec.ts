@@ -75,8 +75,14 @@ describe('GuestsService', () => {
     expect(guests.length).toBe(0);
   });
   it('should delete old inactive guests', async () => {
-    await guestModel.create({ username: 'one', createdAt: new Date('2000-01-01') });
-    await guestModel.create({ username: 'two', createdAt: new Date('2020-01-01') });
+    await guestModel.create({
+      username: 'one',
+      createdAt: new Date('2000-01-01'),
+    });
+    await guestModel.create({
+      username: 'two',
+      createdAt: new Date('2020-01-01'),
+    });
     await service.deleteOldGuestsUpTo('2010-01-01');
     const guests = await guestModel.find({});
     expect(guests.length).toBe(1);
