@@ -144,7 +144,15 @@ describe('GameService', () => {
       }).toThrow(GameErrors.UNAUTHORIZED);
     });
     it('should throw if game is in progress', async () => {
-      // TODO: implement that later
+      const { gameId } = await service.createGame(
+        gameStub({ minPlayers: 1 }),
+        playerStub(),
+      );
+      await service.joinTheGame(gameId, playerStub());
+      await service.startGame(gameId, playerStub().id);
+      expect(() => {
+        service.cancelGame(gameId, playerStub().id);
+      }).toThrow(GameErrors.GAME_HAS_STARTED);
     });
     it('should start game', async () => {
       const { gameId } = await service.createGame(

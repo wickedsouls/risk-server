@@ -49,6 +49,9 @@ export class GameService {
 
   async joinTheGame(gameId: string, player: Player, password?: string) {
     const game = this.getGameById(gameId);
+    if (game.isPrivate && !password) {
+      throw new Error(GameErrors.PASSWORD_IS_REQUIRED);
+    }
     if (game.isPrivate) {
       const match = await passwordEncryption.verifyPassword(
         password,
@@ -95,12 +98,14 @@ export class GameService {
   }
 
   cancelGame(gameId: string, userId: string) {
-    const { createdBy } = this.getGameById(gameId);
-    if (createdBy.id !== userId) {
+    const game = this.getGameById(gameId);
+    if (game.createdBy.id !== userId) {
       throw new Error(GameErrors.UNAUTHORIZED);
     }
+    if (game.gameStatus === GameStatus.InProgress) {
+      throw new Error(GameErrors.GAME_HAS_STARTED);
+    }
     this.games[gameId] = undefined;
-    // if(game)
   }
 
   getAllGames() {

@@ -5,6 +5,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
   OnGatewayConnection,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { Socket, Server } from 'socket.io';
 import { GameService } from '../game/game.service';
@@ -13,14 +14,12 @@ import {
   ServerToClientEvents,
 } from '../common/ws-events';
 import { JoinGameDto } from './dtos/join-game.dto';
-import { UseFilters, ValidationPipe } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { ClientSocket, CreateGameData } from '../game/types';
 import { ChatService } from '../chat/chat.service';
 import { GameErrors } from '../common/errors';
 import { CatchGatewayErrors } from '../decorators/catch-gateway-errors';
 
-@UseFilters()
 @WebSocketGateway({
   namespace: '/game',
   cors: { origin: ['http://localhost:3000', 'http://192.168.1.154:3000'] },
@@ -35,11 +34,13 @@ export class GameGateway implements OnGatewayConnection {
     private chatService: ChatService,
   ) {}
 
-  async handleConnection(socket: Socket) {
+  async handleConnection(socket: ClientSocket) {
     const token = await socket.handshake.auth.token;
     const user = await this.authService.validateToken(token);
     if (user) {
       socket.data.user = { id: user.id, username: user.username };
+      const games = this.gameService.getAllGames();
+      socket.emit('set/GAMES', games);
     } else {
       // socket.data.user = { id: '01' };
       socket.disconnect(true);
@@ -101,12 +102,12 @@ export class GameGateway implements OnGatewayConnection {
   @SubscribeMessage<keyof ClientToServerEvents>('request/JOIN_GAME')
   @CatchGatewayErrors()
   async joinTheGame(
-    @MessageBody(new ValidationPipe()) payload: JoinGameDto,
+    @MessageBody() payload: { gameId: string; password?: string },
     @ConnectedSocket() socket: Socket<ServerToClientEvents>,
   ) {
-    const { gameId } = payload;
+    const { gameId, password } = payload;
     const { user } = this.getUserData(socket);
-    const game = await this.gameService.joinTheGame(gameId, user);
+    const game = await this.gameService.joinTheGame(gameId, user, password);
     const chat = this.chatService.getMessagesForTheRoom(gameId);
     this.server.to(gameId).emit('set/JOIN_GAME', game);
     this.server.emit('set/GAMES', this.gameService.games);
@@ -122,10 +123,25 @@ export class GameGateway implements OnGatewayConnection {
   @SubscribeMessage<keyof ClientToServerEvents>('request/SEND_MESSAGE')
   receiveMessage(
     @MessageBody() data: { message: string },
-    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+    @ConnectedSocket()
+    socket: Socket<ServerToClientEvents>,
   ) {
     const { room, user } = this.getUserData(socket);
     const message = this.chatService.setMessage(data.message, room, user);
     this.server.to(room).emit('set/MESSAGES', message);
+  }
+
+  // @CatchGatewayErrors()
+  @SubscribeMessage<keyof ClientToServerEvents>('request/CANCEL_GAME')
+  cancelGame(
+    @MessageBody() data: { gameId: string },
+    @ConnectedSocket()
+    socket: Socket<ServerToClientEvents, ServerToClientEvents>,
+  ) {
+    const { gameId } = data;
+    const { userId } = this.getUserData(socket);
+    this.gameService.cancelGame(gameId, userId);
+    socket.broadcast.to(gameId).emit('set/CANCEL_GAME', { gameId });
+    this.server.in(gameId).socketsLeave(gameId);
   }
 }

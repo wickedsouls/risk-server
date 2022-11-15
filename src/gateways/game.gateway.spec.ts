@@ -29,13 +29,16 @@ describe('Game Gateway', () => {
     data: { user: playerStub() },
     rooms: [],
     join: jest.fn(),
+    emit: jest.fn(),
     leave: jest.fn(),
+    broadcast: { to: jest.fn().mockReturnValue({ emit: jest.fn() }) },
     disconnect: jest.fn(),
     handshake: { auth: { token: '' } },
   } as unknown as ClientSocket;
 
   const serverMock = {
     emit: jest.fn(),
+    in: jest.fn().mockReturnValue({ socketsLeave: jest.fn() }),
     to: jest.fn().mockReturnValue({ emit: jest.fn() }),
   } as unknown as Server;
 
@@ -113,7 +116,7 @@ describe('Game Gateway', () => {
       { maxPlayers: 6, minPlayers: 1 },
       socketMock,
     );
-    gateway.leaveTheGame({ gameId: gameId }, socketMock);
+    gateway.leaveTheGame({ gameId }, socketMock);
     expect(serverMock.emit).toBeCalledWith('set/GAMES', expect.anything());
     expect(serverMock.to(gameId).emit).toBeCalledWith(
       'set/LEAVE_GAME',
@@ -127,6 +130,18 @@ describe('Game Gateway', () => {
       'set/MESSAGES',
       expect.anything(),
     );
+  });
+  it('should cancel the game', async () => {
+    const { gameId } = await gateway.createGame(
+      { maxPlayers: 6, minPlayers: 1 },
+      socketMock,
+    );
+    gateway.cancelGame({ gameId: gameId }, socketMock);
+    expect(socketMock.broadcast.to(gameId).emit).toBeCalledWith(
+      'set/CANCEL_GAME',
+      expect.anything(),
+    );
+    expect(serverMock.in(gameId).socketsLeave).toBeCalledWith(gameId);
   });
   it('should get all games', () => {
     expect(gateway.getAllGames).toBeDefined();
