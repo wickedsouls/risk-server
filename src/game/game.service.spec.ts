@@ -190,5 +190,36 @@ describe('GameService', () => {
         service.startGame(gameId, playerStub().id);
       }).toThrow(GameErrors.BAD_REQUEST);
     });
+    // it('should get started game info', async () => {
+    //   const { gameId } = await service.createGame(
+    //     gameStub({ minPlayers: 1 }),
+    //     playerStub(),
+    //   );
+    //   await service.joinTheGame(gameId, playerStub());
+    //   await service.startGame(gameId, playerStub().id);
+    //   const game = await service.getGameInfo(gameId, playerStub().id);
+    //   expect(game).toBeDefined();
+    // });
+    // it('should throw on private game on unknown player', async () => {
+    //   const { gameId } = await service.createGame(
+    //     gameStub({ minPlayers: 1, isPrivate: true, password: '123' }),
+    //     playerStub(),
+    //   );
+    //   await service.joinTheGame(gameId, playerStub(), '123');
+    //   await service.startGame(gameId, playerStub().id);
+    //   expect(() => {
+    //     service.getGameInfo(gameId, 'otherId');
+    //   }).toThrow(GameErrors.UNAUTHORIZED);
+    // });
+    // it('should get started private game info', async () => {
+    //   const { gameId } = await service.createGame(
+    //     gameStub({ minPlayers: 1, isPrivate: true, password: '123' }),
+    //     playerStub(),
+    //   );
+    //   await service.joinTheGame(gameId, playerStub(), '123');
+    //   await service.startGame(gameId, playerStub().id);
+    //   const game = await service.getGameInfo(gameId, playerStub().id);
+    //   expect(game).toBeDefined();
+    // });
   });
 });

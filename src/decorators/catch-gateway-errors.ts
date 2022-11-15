@@ -5,6 +5,7 @@ export const CatchGatewayErrors = (): any => {
       try {
         return await originalMethod.apply(this, args);
       } catch (error) {
+        console.log(error);
         return { error: true, message: error?.message };
       }
     };

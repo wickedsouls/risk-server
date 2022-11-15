@@ -144,4 +144,18 @@ export class GameGateway implements OnGatewayConnection {
     socket.broadcast.to(gameId).emit('set/CANCEL_GAME', { gameId });
     this.server.in(gameId).socketsLeave(gameId);
   }
+
+  @CatchGatewayErrors()
+  @SubscribeMessage<keyof ClientToServerEvents>('request/GET_GAME_INFO')
+  other(
+    @MessageBody() data: { gameId: string },
+    @ConnectedSocket()
+    socket: Socket<ServerToClientEvents, ServerToClientEvents>,
+  ) {
+    const { gameId } = data;
+    const { userId } = this.getUserData(socket);
+    this.gameService.cancelGame(gameId, userId);
+    socket.broadcast.to(gameId).emit('set/CANCEL_GAME', { gameId });
+    this.server.in(gameId).socketsLeave(gameId);
+  }
 }

@@ -10,7 +10,7 @@ export interface ServerToClientEvents {
   'set/GAMES': (payload: { [key: string]: Game }) => void;
   'set/CREATE_GAME': (payload: { [key: string]: Game }) => void;
   'set/JOIN_GAME': (payload: Game) => void;
-  'set/START_GAME': (payload: Game) => void;
+  'set/START_GAME': (payload: { gameId: string }) => void;
   'set/LEAVE_GAME': (payload: Game) => void;
   'set/MESSAGES': (payload: Message) => void;
   'set/CANCEL_GAME': (payload: { gameId: string }) => void;
@@ -21,6 +21,10 @@ export interface ClientToServerEvents {
     payload: null,
     ack: (data: { [key: string]: Game }) => void,
   ) => void;
+  'request/GET_GAME_INFO': (
+    payload: { gameId: string },
+    ack: (data: Game | GameError) => void,
+  ) => void;
   'request/CREATE_GAME': (
     payload: CreateGameDto,
     ack: (data: Game | GameError) => void,
@@ -30,7 +34,7 @@ export interface ClientToServerEvents {
     ack: (data: { game: Game; chat: Message[] } | GameError) => void,
   ) => void;
   'request/START_GAME': (
-    payload: Game,
+    payload: { gameId: string },
     ack: (data: Game | GameError) => void,
   ) => void;
   'request/LEAVE_GAME': (payload: { gameId: string }) => void;

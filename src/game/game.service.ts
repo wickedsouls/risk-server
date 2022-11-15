@@ -62,6 +62,9 @@ export class GameService {
     if (game.gameStatus === GameStatus.Completed) {
       throw new Error(GameErrors.GAME_HAS_ENDED);
     }
+    if (game.gameStatus === GameStatus.InProgress) {
+      throw new Error(GameErrors.GAME_IN_PROGRESS);
+    }
     if (game.maxPlayers === game.players.length) {
       throw new Error(GameErrors.GAME_IS_FULL);
     }
@@ -110,5 +113,17 @@ export class GameService {
 
   getAllGames() {
     return this.games;
+  }
+
+  async getGameInfo(gameId: string, playerId: string) {
+    console.log(gameId, playerId);
+    const game = this.getGameById(gameId);
+    const isPlayerInGame = !!game.players.find(
+      (player) => player.id === playerId,
+    );
+    if (game.isPrivate && !isPlayerInGame) {
+      throw new Error(GameErrors.UNAUTHORIZED);
+    }
+    return game;
   }
 }
