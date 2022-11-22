@@ -1,9 +1,9 @@
-export const CatchGatewayErrors = (): any => {
+export const CatchGatewayErrors = (): MethodDecorator => {
   return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value;
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = function (...args: any[]) {
       try {
-        return await originalMethod.apply(this, args);
+        return originalMethod.apply(this, args);
       } catch (error) {
         console.log(error);
         return { error: true, message: error?.message };

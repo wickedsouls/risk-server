@@ -1,30 +1,42 @@
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  OnGatewayConnection,
-  OnGatewayInit,
 } from '@nestjs/websockets';
-import { Socket, Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { GameService } from '../game/game.service';
 import {
   ClientToServerEvents,
   ServerToClientEvents,
 } from '../common/ws-events';
-import { JoinGameDto } from './dtos/join-game.dto';
 import { AuthService } from '../auth/auth.service';
-import { ClientSocket, CreateGameData } from '../game/types';
+import { ClientSocket, CreateGameData, GameStatus } from '../game/types';
 import { ChatService } from '../chat/chat.service';
 import { GameErrors } from '../common/errors';
 import { CatchGatewayErrors } from '../decorators/catch-gateway-errors';
+import { createTestingGame } from '../game/utils';
+import { Earth } from '../game/maps';
+
+const LogEvents = (): MethodDecorator => {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
+    console.log(target, propertyKey, descriptor);
+    return descriptor;
+  };
+};
 
 @WebSocketGateway({
   namespace: '/game',
   cors: { origin: ['http://localhost:3000', 'http://192.168.1.154:3000'] },
 })
-export class GameGateway implements OnGatewayConnection {
+export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   @WebSocketServer()
   server: Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -33,6 +45,15 @@ export class GameGateway implements OnGatewayConnection {
     private gameService: GameService,
     private chatService: ChatService,
   ) {}
+
+  afterInit() {
+    const game = createTestingGame({
+      players: [],
+      currentPlayer: { id: '636a78f3ae986c6b8bc61ee5', username: 'wicked' },
+      gameStatus: GameStatus.Registering,
+    });
+    this.gameService.games[game.gameId] = game;
+  }
 
   async handleConnection(socket: ClientSocket) {
     const token = await socket.handshake.auth.token;
@@ -81,7 +102,8 @@ export class GameGateway implements OnGatewayConnection {
   ) {
     const { gameId } = payload;
     const { userId } = this.getUserData(socket);
-    const game = this.gameService.startGame(gameId, userId);
+    this.gameService.startGame(gameId, userId);
+    const game = this.gameService.initGame(gameId, Earth);
     this.server.emit('set/GAMES', this.gameService.games);
     this.server.to(gameId).emit('set/START_GAME', game);
   }
@@ -131,8 +153,8 @@ export class GameGateway implements OnGatewayConnection {
     this.server.to(room).emit('set/MESSAGES', message);
   }
 
-  // @CatchGatewayErrors()
   @SubscribeMessage<keyof ClientToServerEvents>('request/CANCEL_GAME')
+  @CatchGatewayErrors()
   cancelGame(
     @MessageBody() data: { gameId: string },
     @ConnectedSocket()
@@ -145,17 +167,116 @@ export class GameGateway implements OnGatewayConnection {
     this.server.in(gameId).socketsLeave(gameId);
   }
 
-  @CatchGatewayErrors()
   @SubscribeMessage<keyof ClientToServerEvents>('request/GET_GAME_INFO')
-  other(
-    @MessageBody() data: { gameId: string },
-    @ConnectedSocket()
-    socket: Socket<ServerToClientEvents, ServerToClientEvents>,
+  @CatchGatewayErrors()
+  getGameInfo(
+    @MessageBody() payload: { gameId: string; password?: string },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
   ) {
-    const { gameId } = data;
+    const { gameId } = payload;
     const { userId } = this.getUserData(socket);
-    this.gameService.cancelGame(gameId, userId);
-    socket.broadcast.to(gameId).emit('set/CANCEL_GAME', { gameId });
-    this.server.in(gameId).socketsLeave(gameId);
+    const game = this.gameService.getGameInfo(gameId, userId);
+    const chat = this.chatService.getMessagesForTheRoom(gameId);
+    socket.join(gameId);
+    return { game, chat };
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/END_TURN')
+  @CatchGatewayErrors()
+  endTurn(
+    @MessageBody() payload: { gameId: string },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { userId, room } = this.getUserData(socket);
+    const game = this.gameService.endTurn(payload.gameId, userId);
+    this.server.to(room).emit('set/UPDATE_GAME', game);
+    return game;
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/PLACE_ARMIES')
+  @CatchGatewayErrors()
+  @LogEvents()
+  placeArmies(
+    @MessageBody() payload: { zone: string; amount: number },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { zone, amount } = payload;
+    const { userId, room } = this.getUserData(socket);
+    const game = this.gameService.placeArmies(room, userId, amount, zone);
+    this.server.to(room).emit('set/UPDATE_GAME', game);
+    const selectedZone = game.armiesThisTurn === 0 ? undefined : payload.zone;
+    this.server.to(room).emit('set/SELECT_ZONE', { zone: selectedZone });
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/ATTACK_PLAYER')
+  @CatchGatewayErrors()
+  @LogEvents()
+  attackPlayer(
+    @MessageBody()
+    payload: { zoneFrom: string; zoneTo: string; amount: number },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { room, userId } = this.getUserData(socket);
+    const { zoneFrom, zoneTo, amount } = payload;
+    const game = this.gameService.attack(
+      room,
+      userId,
+      amount,
+      zoneFrom,
+      zoneTo,
+    );
+    this.server.to(room).emit('set/UPDATE_GAME', game);
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/MOVE_ARMY')
+  @CatchGatewayErrors()
+  @LogEvents()
+  moveArmy(
+    @MessageBody()
+    payload: { zoneFrom: string; zoneTo: string; amount: number },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { room, userId } = this.getUserData(socket);
+    const { zoneFrom, zoneTo, amount } = payload;
+    const game = this.gameService.moveArmy(
+      room,
+      userId,
+      amount,
+      zoneFrom,
+      zoneTo,
+    );
+    this.server.to(room).emit('set/UPDATE_GAME', game);
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/SELECT_ZONE_FROM')
+  @CatchGatewayErrors()
+  selectZoneFrom(
+    @MessageBody() payload: { zone?: string },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { room } = this.getUserData(socket);
+    socket.broadcast
+      .to(room)
+      .emit('set/SELECT_ZONE_FROM', { zone: payload.zone });
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/SELECT_ZONE_TO')
+  @CatchGatewayErrors()
+  selectZoneTo(
+    @MessageBody() payload: { zone?: string },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { room } = this.getUserData(socket);
+    socket.broadcast
+      .to(room)
+      .emit('set/SELECT_ZONE_TO', { zone: payload.zone });
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/FINISH_ATTACK')
+  @CatchGatewayErrors()
+  finishAttack(@ConnectedSocket() socket: Socket<ServerToClientEvents>) {
+    const { room, userId } = this.getUserData(socket);
+    const game = this.gameService.finishAttack(room, userId);
+    this.server.to(room).emit('set/UPDATE_GAME', game);
   }
 }

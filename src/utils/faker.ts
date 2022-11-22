@@ -1,12 +1,12 @@
-import * as Chance from 'chance';
+import Chance from 'chance';
 
 export const faker = {
   chance: new Chance(),
   createName() {
-    let first = this.chance.word();
-    first = first.charAt(0).toUpperCase() + first.slice(1);
-    let second = this.chance.word();
-    second = second.charAt(0).toUpperCase() + second.slice(1);
+    const word1 = this.chance.word();
+    const word2 = this.chance.word();
+    const first = word1.charAt(0).toUpperCase() + word1.slice(1);
+    const second = word2.charAt(0).toUpperCase() + word2.slice(1);
     return first + second;
   },
 
