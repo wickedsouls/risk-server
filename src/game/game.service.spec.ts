@@ -1,16 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GameService } from './game.service';
-import { Game, GameStatus } from './types';
+import { Game, GameStatus, Player, TurnState } from './types';
 import { gameStub, playerStub } from '../../test/stubs/game.stub';
 import { GameErrors } from '../common/errors';
 import { Earth } from './maps';
 import values from 'lodash.values';
-import exp from 'constants';
 
 describe('GameService', () => {
   let service: GameService;
 
-  const startFreshGameWithPlayers = async (playerCount: number) => {
+  const startFreshGameWithPlayers = async (
+    playerCount: number,
+  ): Promise<{ game: Game; players: Player[] }> => {
     const game = await service.createGame(gameStub(), playerStub());
     const players = [];
     for (let i = 0; i < playerCount; i++) {
@@ -242,7 +243,8 @@ describe('GameService', () => {
       }).toThrow(GameErrors.UNAUTHORIZED);
     });
     it('should get started private game info', async () => {
-      const { gameId } = await service.createGame(
+      // TODO: finish private game
+      const { gameId, players } = await service.createGame(
         gameStub({ minPlayers: 1, isPrivate: true, password: '123' }),
         playerStub(),
       );
@@ -320,16 +322,25 @@ describe('GameService', () => {
       }).toThrow(GameErrors.BAD_REQUEST);
     });
     it('should generate army', async () => {
-      const { game } = await startFreshGameWithPlayers(6);
+      const { game, players } = await startFreshGameWithPlayers(6);
       service.initGame(game.gameId, Earth);
+      const playerId = players[0].id;
+      // Armies from zones: 14
+      for (const zone in game.map.zones) {
+        game.map.zones[zone].owner = playerId;
+      }
+      // Armies from continents: 24
+      for (const continent in game.map.continents) {
+        game.map.continents[continent].owner = playerId;
+      }
       const army = service.generateArmy(game.gameId);
-      expect(army).toBe(3);
+      expect(army).toBe(14 + 24);
     });
     it('should end turn', async () => {
       const { game } = await startFreshGameWithPlayers(6);
       service.initGame(game.gameId, Earth);
       service.endTurn(game.gameId, game.players[0].id);
-      expect(game.armiesThisTurn).toBe(0);
+      expect(game.turnState).toBe(TurnState.PlaceArmies);
       expect(game.currentPlayer.id).toBe(game.players[1].id);
     });
     it('should throw if wrong player ends turn', async () => {
@@ -472,6 +483,8 @@ describe('GameService', () => {
     it('should validate attack', async () => {
       const { game, players } = await startFreshGameWithPlayers(2);
       service.initGame(game.gameId, Earth);
+      game.armiesThisTurn = 0;
+      game.turnState = TurnState.Attack;
       const { currentPlayer, gameId } = game;
       const nextPlayer = players[1];
       service.generateArmy(gameId);
@@ -494,7 +507,7 @@ describe('GameService', () => {
           attackerZone.name,
           defenderZone.name,
         );
-      }).toThrow(GameErrors.BAD_REQUEST);
+      }).toThrow(GameErrors.PLACE_ALL_ARMIES);
       // Player attacks his own zone
       expect(() => {
         service.attack(
@@ -515,7 +528,7 @@ describe('GameService', () => {
           remoteZone.name,
         );
       }).toThrow(GameErrors.BAD_REQUEST);
-      // Player attacks when its not his turn
+      // Player attacks when it's not his turn
       expect(() => {
         service.attack(
           gameId,
@@ -536,17 +549,23 @@ describe('GameService', () => {
         );
       }).toThrow(GameErrors.BAD_REQUEST);
     });
+    it('should eliminate player', async () => {
+      const { game, players } = await startFreshGameWithPlayers(6);
+      const attackerId = players[0].id;
+      const defenderId = players[1].id;
+      service.initGame(game.gameId, Earth);
+      for (const zone in game.map.zones) {
+        game.map.zones[zone].owner = attackerId;
+      }
+      service.eliminatePlayer(game.gameId, attackerId, defenderId);
+      expect(players[1].status).toBe('defeat');
+    });
   });
   describe('Attack continent', () => {
     it('should win continent', async () => {
       const { game, players } = await startFreshGameWithPlayers(2);
       service.initGame(game.gameId, Earth);
       game.map.continents['South America'].reward = 11;
-      console.log(
-        game.map.continents['South America'],
-        game.gameId,
-        'continents',
-      );
       game.map.zones['Argentina'].owner = players[0].id;
       game.map.zones['Peru'].owner = players[0].id;
       game.map.zones['Brazil'].owner = players[0].id;
@@ -562,11 +581,6 @@ describe('GameService', () => {
     it('should not win continent when not all lands are taken', async () => {
       const { game, players } = await startFreshGameWithPlayers(2);
       service.initGame(game.gameId, Earth);
-      console.log(
-        game.map.continents['South America'],
-        game.gameId,
-        'continents',
-      );
       game.map.zones['Argentina'].owner = players[0].id;
       game.map.zones['Peru'].owner = players[1].id;
       const winContinent = service['winContinent'](
@@ -575,7 +589,13 @@ describe('GameService', () => {
         'Argentina',
       );
       expect(winContinent).toBeFalsy();
-      // console.log(game.map.continents['South America'].owner, 'owner');
+      expect(game.map.continents['South America'].owner).toBeUndefined();
+    });
+    it('should lose the continent', async () => {
+      const { game } = await startFreshGameWithPlayers(2);
+      service.initGame(game.gameId, Earth);
+      game.map.continents['South America'].owner = '1';
+      service['loseContinent'](game.gameId, 'Argentina');
       expect(game.map.continents['South America'].owner).toBeUndefined();
     });
   });

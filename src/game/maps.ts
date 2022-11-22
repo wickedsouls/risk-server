@@ -144,7 +144,7 @@ export const Earth: Map<EarthZones, EarthContinents> = {
     Greenland: {
       name: 'Greenland',
       reward: 1,
-      continent: 'Europe',
+      continent: 'North America',
       neighbours: ['Northwest Territory', 'Iceland', 'Ontario', 'Quebec'],
     },
     Iceland: {

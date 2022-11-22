@@ -4,9 +4,7 @@ import { Game, GameStatus, Map, Player, TurnState, Zone } from './types';
 import { GameErrors } from '../common/errors';
 import { CreateGameDto } from '../gateways/dtos/create-game.dto';
 import { passwordEncryption } from '../utils/password-encription';
-import shuffle from 'lodash.shuffle';
-import values from 'lodash.values';
-import keyBy from 'lodash.keyby';
+import { cloneDeep, keyBy, values, shuffle } from 'lodash';
 import { Colors } from './colors';
 
 @Injectable()
@@ -119,20 +117,19 @@ export class GameService {
     return this.games;
   }
 
-  getGameInfo(gameId: string, playerId: string) {
-    const game = this.getGameById(gameId);
-    this.checkIfPlayerIsInTheGame(gameId, playerId);
-    if (game.isPrivate) {
-      throw new Error(GameErrors.UNAUTHORIZED);
-    }
-    return game;
+  async getGameInfo(gameId: string, playerId: string) {
+    console.log('gameId', gameId, 'playerId', playerId);
+    return this.games[gameId];
+    // const game = this.getGameById(gameId);
+    // this.checkIfPlayerIsInTheGame(gameId, playerId);
+    // return game;
   }
 
   initGame(gameId: string, map: Map<string, string>) {
     const game = this.getGameById(gameId);
-
+    // TODO: add options to shuffle players, colors and zones
     // Load map
-    this.loadMap(game, map);
+    this.loadMap(game, cloneDeep(map));
     // Shuffle players
     // this.shufflePlayers(game);
     // Assign colors
@@ -248,7 +245,6 @@ export class GameService {
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     const game = this.getGameById(gameId);
     this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
-    console.log(playerId, game.gameId, zoneName, 'pid, gid, zone');
     this.checkIfPlayerOwnsTheZone(playerId, game, zoneName);
     if (!amount || amount > game.armiesThisTurn) {
       throw new Error(GameErrors.UNAUTHORIZED);
@@ -303,50 +299,57 @@ export class GameService {
     const game = this.getGameById(gameId);
     const attacker = game.map.zones[from];
     const defender = game.map.zones[to];
+    const defenderId = defender.owner;
     if (game.armiesThisTurn !== 0) {
       throw new Error(GameErrors.PLACE_ALL_ARMIES);
     }
     this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
     this.checkIfPlayerOwnsTheZone(playerId, game, from);
     this.checkIfZoneHasValidNeighbour(attacker, to);
-    if (defender.owner === playerId) {
+    if (defenderId === playerId) {
       throw new Error(GameErrors.BAD_REQUEST);
     }
     this.setTurnState(gameId, TurnState.Attack);
     if (amount >= attacker.armies) {
-      console.log('Amount too large');
-      throw new Error(GameErrors.BAD_REQUEST);
+      throw new Error(GameErrors.AMOUNT_TOO_LARGE);
     }
     const damage = amount - defender.armies;
-    console.log('damage:', damage);
     if (damage > 0) {
       // win - attacker wins
-      console.log(attacker.name, 'win');
       attacker.armies -= amount;
       defender.owner = attacker.owner;
       defender.armies = damage;
+      this.loseContinent(gameId, to);
+      this.winContinent(gameId, playerId, to);
+      this.eliminatePlayer(gameId, playerId, defenderId);
     } else if (damage <= 0) {
       // lose - attacker loses
-      console.log(attacker.name, 'lose');
       attacker.armies -= amount;
       defender.armies = defender.armies - amount || 1;
     }
     return game;
   }
 
-  private winContinent(gameId: string, playerId: string, zone: string) {
+  private winContinent(gameId: string, playerId: string, zoneName: string) {
     const { map } = this.getGameById(gameId);
-    const continentName = map.zones[zone].continent;
+    const continentName = map.zones[zoneName].continent;
     const ownedZones = values(map.zones).filter((z) => {
       // console.log(z.owner);
       return z.owner === playerId && z.continent === continentName;
     });
-    // console.log(ownedZones.length, 'elnt');
     if (map.continents[continentName].zoneCount === ownedZones.length) {
       map.continents[continentName].owner = playerId;
       return true;
     }
     return false;
+  }
+
+  private loseContinent(gameId: string, zoneName: string) {
+    const { map } = this.getGameById(gameId);
+    const { continent } = map.zones[zoneName];
+    if (map.continents[continent].owner) {
+      map.continents[continent].owner = undefined;
+    }
   }
 
   addCard() {}
@@ -357,6 +360,20 @@ export class GameService {
 
   checkForLose() {}
 
+  eliminatePlayer(gameId: string, attackerId: string, defenderId: string) {
+    const { map, players } = this.getGameById(gameId);
+    const isInTheGame = values(map.zones).find(
+      (zone) => zone.owner === defenderId,
+    );
+    if (!isInTheGame) {
+      players.forEach((player) => {
+        if (player.id === defenderId) {
+          player.status = 'defeat';
+        }
+      });
+    }
+  }
+
   surender() {}
 
   getZoneCount(game) {
@@ -366,14 +383,23 @@ export class GameService {
   generateArmy(gameId: string) {
     const game = this.getGameById(gameId);
     const DIVIDER = 3;
-    const armies = values(game.map.zones)
+
+    let armiesFromZones = values(game.map.zones)
       .filter((zone) => {
         return zone.owner === game.currentPlayer.id;
       })
       .reduce((total) => total + 1, 0);
     // Player gets armies / 3, but always at least 3
-    const armiesThisTurn =
-      armies / DIVIDER < 3 ? 3 : Math.floor(armies / DIVIDER);
+    armiesFromZones =
+      armiesFromZones / DIVIDER < 3 ? 3 : Math.floor(armiesFromZones / DIVIDER);
+
+    const armiesFromContinents = values(game.map.continents)
+      .filter((c) => {
+        return c.owner === game.currentPlayer.id;
+      })
+      .reduce((total, c) => total + c.reward, 0);
+
+    const armiesThisTurn = armiesFromZones + armiesFromContinents;
     game.armiesThisTurn = armiesThisTurn;
     return armiesThisTurn;
   }

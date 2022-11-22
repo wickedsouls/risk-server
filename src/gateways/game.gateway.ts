@@ -47,12 +47,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   ) {}
 
   afterInit() {
-    const game = createTestingGame({
-      players: [],
-      currentPlayer: { id: '636a78f3ae986c6b8bc61ee5', username: 'wicked' },
-      gameStatus: GameStatus.Registering,
-    });
-    this.gameService.games[game.gameId] = game;
+    // const game = createTestingGame({
+    //   players: [],
+    //   currentPlayer: { id: '636a78f3ae986c6b8bc61ee5', username: 'wicked' },
+    //   gameStatus: GameStatus.Registering,
+    // });
+    // this.gameService.games[game.gameId] = game;
   }
 
   async handleConnection(socket: ClientSocket) {
@@ -175,9 +175,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   ) {
     const { gameId } = payload;
     const { userId } = this.getUserData(socket);
+    console.log(gameId, userId, 'game info');
     const game = this.gameService.getGameInfo(gameId, userId);
     const chat = this.chatService.getMessagesForTheRoom(gameId);
     socket.join(gameId);
+    console.log('game', game);
     return { game, chat };
   }
 
