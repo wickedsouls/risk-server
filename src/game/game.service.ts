@@ -6,6 +6,7 @@ import { CreateGameDto } from '../gateways/dtos/create-game.dto';
 import { passwordEncryption } from '../utils/password-encription';
 import { cloneDeep, keyBy, values, shuffle } from 'lodash';
 import { Colors } from './colors';
+import { getAttackResults } from './attack-results';
 
 @Injectable()
 export class GameService {
@@ -314,21 +315,30 @@ export class GameService {
     if (amount >= attacker.armies) {
       throw new Error(GameErrors.AMOUNT_TOO_LARGE);
     }
-    const damage = amount - defender.armies;
-    if (damage > 0) {
-      // win - attacker wins
+
+    console.log('------------------');
+    console.log('amount:', amount);
+
+    const { attackerArmy, defenderArmy } = getAttackResults(
+      amount,
+      defender.armies,
+    );
+
+    if (defenderArmy === 0) {
       attacker.armies -= amount;
       defender.owner = attacker.owner;
-      defender.armies = damage;
+      defender.armies = attackerArmy;
       this.loseContinent(gameId, to);
       this.winContinent(gameId, playerId, to);
       this.eliminatePlayer(gameId, playerId, defenderId);
       this.checkForWin(gameId);
-    } else if (damage <= 0) {
-      // lose - attacker loses
+    } else if (attackerArmy === 0) {
       attacker.armies -= amount;
-      defender.armies = defender.armies - amount || 1;
+      defender.armies = defenderArmy;
+    } else {
+      throw Error(GameErrors.UNEXPECTED_ATTACK_RESULTS);
     }
+
     return game;
   }
 
