@@ -179,7 +179,6 @@ export class GameService {
   }
 
   endTurn(gameId: string, playerId: string) {
-    // TODO: Ignore players that lost
     const game = this.getGameById(gameId);
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
@@ -195,8 +194,6 @@ export class GameService {
       game.currentPlayerIndex = 0;
       game.currentPlayer = game.players[0];
     }
-    console.log(game.currentPlayerIndex, 'index');
-    console.log(game.currentPlayer);
     this.setTurnState(gameId, TurnState.PlaceArmies);
     this.generateArmy(game.gameId);
     return game;
@@ -326,6 +323,7 @@ export class GameService {
       this.loseContinent(gameId, to);
       this.winContinent(gameId, playerId, to);
       this.eliminatePlayer(gameId, playerId, defenderId);
+      this.checkForWin(gameId);
     } else if (damage <= 0) {
       // lose - attacker loses
       attacker.armies -= amount;
@@ -360,9 +358,15 @@ export class GameService {
 
   useCard() {}
 
-  checkForWin() {}
-
-  checkForLose() {}
+  checkForWin(gameId: string) {
+    const game = this.getGameById(gameId);
+    const alivePlayers = game.players.filter((player) => {
+      return player.status !== 'defeat' && player.status !== 'deserter';
+    });
+    if (alivePlayers.length === 1) {
+      alivePlayers[0].status = 'win';
+    }
+  }
 
   eliminatePlayer(gameId: string, attackerId: string, defenderId: string) {
     const { map, players } = this.getGameById(gameId);
