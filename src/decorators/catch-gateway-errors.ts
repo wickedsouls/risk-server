@@ -5,7 +5,7 @@ export const CatchGatewayErrors = (): MethodDecorator => {
       try {
         return originalMethod.apply(this, args);
       } catch (error) {
-        console.log(error);
+        console.log(404, error);
         return { error: true, message: error?.message };
       }
     };

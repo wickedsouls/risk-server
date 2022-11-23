@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { GameGateway } from './game.gateway';
 import { config } from 'dotenv';
 import { GameService } from '../game/game.service';
-import { FakerService } from '../services/faker.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from '../auth/auth.service';
 import { ChatService } from '../chat/chat.service';
@@ -16,7 +15,6 @@ import { playerStub } from '../../test/stubs/game.stub';
 import { Server } from 'socket.io';
 import { ClientSocket } from '../game/types';
 import { sign } from 'jsonwebtoken';
-import { userStub } from '../../test/stubs/user.stub';
 
 config();
 
@@ -50,7 +48,6 @@ describe('Game Gateway', () => {
       providers: [
         GameGateway,
         GameService,
-        FakerService,
         JwtService,
         AuthService,
         ChatService,

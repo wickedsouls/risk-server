@@ -117,12 +117,10 @@ export class GameService {
     return this.games;
   }
 
-  async getGameInfo(gameId: string, playerId: string) {
-    console.log('gameId', gameId, 'playerId', playerId);
-    return this.games[gameId];
-    // const game = this.getGameById(gameId);
-    // this.checkIfPlayerIsInTheGame(gameId, playerId);
-    // return game;
+  getGameInfo(gameId: string, playerId: string) {
+    const game = this.getGameById(gameId);
+    this.checkIfPlayerIsInTheGame(gameId, playerId);
+    return game;
   }
 
   initGame(gameId: string, map: Map<string, string>) {
@@ -186,20 +184,26 @@ export class GameService {
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
     game.armiesThisTurn = 0;
-    let index = game.currentPlayerIndex + 1;
-    if (index === game.players.length) index = 0;
-    game.currentPlayerIndex = index;
-    game.currentPlayer = game.players[index];
+
+    game.currentPlayerIndex++;
+    game.currentPlayer = game.players[game.currentPlayerIndex];
+    while (game.currentPlayer && game.currentPlayer.status === 'defeat') {
+      game.currentPlayerIndex++;
+      game.currentPlayer = game.players[game.currentPlayerIndex];
+    }
+    if (!game.currentPlayer) {
+      game.currentPlayerIndex = 0;
+      game.currentPlayer = game.players[0];
+    }
+    console.log(game.currentPlayerIndex, 'index');
+    console.log(game.currentPlayer);
     this.setTurnState(gameId, TurnState.PlaceArmies);
     this.generateArmy(game.gameId);
     return game;
   }
 
   checkIfPlayerIsInTheGame(gameId: string, playerId: string) {
-    // Check if he was eliminated
-    console.log('checkIfPlayerIsInTheGame', 'gid:', gameId, 'pid:', playerId);
     const { players } = this.getGameById(gameId);
-    console.log(players);
     const player = players.find((p) => p.id === playerId);
     if (!player) throw new Error(GameErrors.UNAUTHORIZED);
     return player;

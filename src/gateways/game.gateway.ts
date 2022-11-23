@@ -169,17 +169,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/GET_GAME_INFO')
   @CatchGatewayErrors()
-  getGameInfo(
+  async getGameInfo(
     @MessageBody() payload: { gameId: string; password?: string },
     @ConnectedSocket() socket: Socket<ServerToClientEvents>,
   ) {
     const { gameId } = payload;
     const { userId } = this.getUserData(socket);
-    console.log(gameId, userId, 'game info');
     const game = this.gameService.getGameInfo(gameId, userId);
     const chat = this.chatService.getMessagesForTheRoom(gameId);
     socket.join(gameId);
-    console.log('game', game);
     return { game, chat };
   }
 
