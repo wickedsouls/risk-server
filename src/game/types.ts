@@ -26,11 +26,18 @@ export enum TurnState {
   'Move' = 'Move',
 }
 
+export enum PlayerStatus {
+  Win = 'Win',
+  Defeat = 'Defeat',
+  Deserter = 'Deserter',
+  Surrender = 'Surrender',
+}
+
 export interface Player {
   id: string;
   username: string;
   color?: string;
-  status?: 'win' | 'defeat' | 'deserter';
+  status?: PlayerStatus;
   title?: string;
 }
 

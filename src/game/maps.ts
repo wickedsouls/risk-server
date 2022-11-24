@@ -309,7 +309,7 @@ export const Earth: Map<EarthZones, EarthContinents> = {
       name: 'Kamchatka',
       reward: 1,
       continent: 'Asia',
-      neighbours: ['Yakutsk', 'Irkutsk', 'Mongolia', 'Japan'],
+      neighbours: ['Yakutsk', 'Irkutsk', 'Mongolia', 'Japan', 'Alaska'],
     },
     Irkutsk: {
       name: 'Irkutsk',

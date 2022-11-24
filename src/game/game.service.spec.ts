@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GameService } from './game.service';
-import { Game, GameStatus, Player, TurnState } from './types';
+import { Game, GameStatus, Player, PlayerStatus, TurnState } from './types';
 import { gameStub, playerStub } from '../../test/stubs/game.stub';
 import { GameErrors } from '../common/errors';
 import { Earth } from './maps';
-import { values, cloneDeep } from 'lodash';
+import { cloneDeep, values } from 'lodash';
 
 describe('GameService', () => {
   let service: GameService;
@@ -558,7 +558,7 @@ describe('GameService', () => {
         game.map.zones[zone].owner = attackerId;
       }
       service.eliminatePlayer(game.gameId, attackerId, defenderId);
-      expect(players[1].status).toBe('defeat');
+      expect(players[1].status).toBe(PlayerStatus.Defeat);
     });
   });
   describe('Attack continent', () => {
@@ -603,10 +603,16 @@ describe('GameService', () => {
     it('should win the game', async () => {
       const { game, players } = await startFreshGameWithPlayers(3);
       service.initGame(game.gameId, Earth);
-      players[1].status = 'defeat';
-      players[2].status = 'defeat';
+      players[1].status = PlayerStatus.Defeat;
+      players[2].status = PlayerStatus.Defeat;
       service.checkForWin(game.gameId);
-      expect(players[0].status).toBe('win');
+      expect(players[0].status).toBe(PlayerStatus.Win);
+    });
+    it('should surrender', async () => {
+      const { game } = await startFreshGameWithPlayers(3);
+      service.initGame(game.gameId, Earth);
+      service.surrender(game.gameId, game.players[0].id);
+      expect(game.players[0].status).toBe(PlayerStatus.Surrender);
     });
   });
 });

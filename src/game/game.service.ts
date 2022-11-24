@@ -1,10 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { faker } from '../utils/faker';
-import { Game, GameStatus, Map, Player, TurnState, Zone } from './types';
+import {
+  Game,
+  GameStatus,
+  Map,
+  Player,
+  PlayerStatus,
+  TurnState,
+  Zone,
+} from './types';
 import { GameErrors } from '../common/errors';
 import { CreateGameDto } from '../gateways/dtos/create-game.dto';
 import { passwordEncryption } from '../utils/password-encription';
-import { cloneDeep, keyBy, values, shuffle } from 'lodash';
+import { cloneDeep, keyBy, shuffle, values } from 'lodash';
 import { Colors } from './colors';
 import { getAttackResults } from './attack-results';
 
@@ -24,6 +32,10 @@ export class GameService {
     }
   }
 
+  private getPlayerData(gameId: string, playerId: string) {
+    return this.games[gameId].players.find((player) => player.id === playerId);
+  }
+
   startGame(gameId: string, playerId: string) {
     const game = this.getGameById(gameId);
     if (game.players.length < game.minPlayers) {
@@ -41,6 +53,13 @@ export class GameService {
 
   leaveTheGame(gameId: string, playerId: string) {
     const game = this.getGameById(gameId);
+    const player = this.getPlayerData(gameId, playerId);
+    if (game.gameStatus === GameStatus.InProgress && !player?.status) {
+      throw new Error(GameErrors.GAME_IN_PROGRESS);
+    }
+    if (game.gameStatus === GameStatus.Completed && player?.status) {
+      return game;
+    }
     this.games[gameId].players = game.players.filter(
       (player) => player.id !== playerId,
     );
@@ -72,7 +91,7 @@ export class GameService {
       throw new Error(GameErrors.GAME_IS_FULL);
     }
     if (!game.players.find((p) => p.id === player.id)) {
-      game.players.push(player);
+      game.players.push({ id: player.id, username: player.username });
     }
     return game;
   }
@@ -95,7 +114,7 @@ export class GameService {
       password: hash || password,
       maxPlayers,
       minPlayers,
-      createdBy: player,
+      createdBy: { id: player.id, username: player.username },
       gameStatus: GameStatus.Registering,
       createdAt: new Date(),
     };
@@ -187,7 +206,11 @@ export class GameService {
 
     game.currentPlayerIndex++;
     game.currentPlayer = game.players[game.currentPlayerIndex];
-    while (game.currentPlayer && game.currentPlayer.status === 'defeat') {
+    while (
+      game.currentPlayer &&
+      (game.currentPlayer.status === PlayerStatus.Defeat ||
+        game.currentPlayer.status === PlayerStatus.Surrender)
+    ) {
       game.currentPlayerIndex++;
       game.currentPlayer = game.players[game.currentPlayerIndex];
     }
@@ -368,13 +391,34 @@ export class GameService {
 
   useCard() {}
 
+  surrender(gameId: string, playerId: string) {
+    // TODO: check for win
+    const game = this.getGameById(gameId);
+    this.checkIfPlayerIsInTheGame(gameId, playerId);
+    game.players = game.players.map((player: Player): Player => {
+      return player.id === playerId
+        ? { ...player, status: PlayerStatus.Surrender }
+        : player;
+    });
+    if (game.currentPlayer.id === playerId) {
+      this.endTurn(gameId, playerId);
+    }
+    this.checkForWin(gameId);
+    return game;
+  }
+
   checkForWin(gameId: string) {
     const game = this.getGameById(gameId);
     const alivePlayers = game.players.filter((player) => {
-      return player.status !== 'defeat' && player.status !== 'deserter';
+      return ![
+        PlayerStatus.Defeat,
+        PlayerStatus.Deserter,
+        PlayerStatus.Surrender,
+      ].includes(player.status);
     });
     if (alivePlayers.length === 1) {
-      alivePlayers[0].status = 'win';
+      alivePlayers[0].status = PlayerStatus.Win;
+      game.gameStatus = GameStatus.Completed;
     }
   }
 
@@ -386,13 +430,11 @@ export class GameService {
     if (!isInTheGame) {
       players.forEach((player) => {
         if (player.id === defenderId) {
-          player.status = 'defeat';
+          player.status = PlayerStatus.Defeat;
         }
       });
     }
   }
-
-  surender() {}
 
   getZoneCount(game) {
     return values(game.map.zones).length;

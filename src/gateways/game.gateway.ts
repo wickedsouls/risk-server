@@ -14,11 +14,10 @@ import {
   ServerToClientEvents,
 } from '../common/ws-events';
 import { AuthService } from '../auth/auth.service';
-import { ClientSocket, CreateGameData, GameStatus } from '../game/types';
+import { ClientSocket, CreateGameData } from '../game/types';
 import { ChatService } from '../chat/chat.service';
 import { GameErrors } from '../common/errors';
 import { CatchGatewayErrors } from '../decorators/catch-gateway-errors';
-import { createTestingGame } from '../game/utils';
 import { Earth } from '../game/maps';
 
 const LogEvents = (): MethodDecorator => {
@@ -70,9 +69,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   }
 
   getUserData(socket: ClientSocket) {
+    console.log('socket.data.user', socket.data.user);
     if (!socket.data?.user?.id) {
       throw new Error(GameErrors.MISSING_USER_PAYLOAD);
     }
+    console.log(socket.rooms, 'socket room');
     return {
       room: Array.from(socket.rooms)[1],
       userId: socket.data.user.id,
@@ -86,11 +87,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     @MessageBody() payload: { gameId: string },
     @ConnectedSocket() socket: Socket,
   ) {
-    const { gameId } = payload;
+    const { room } = this.getUserData(socket);
     const { userId } = this.getUserData(socket);
-    const game = this.gameService.leaveTheGame(gameId, userId);
-    socket.leave(gameId);
-    this.server.to(gameId).emit('set/LEAVE_GAME', game);
+    const game = this.gameService.leaveTheGame(room, userId);
+    socket.leave(room);
+    this.server.to(room).emit('set/LEAVE_GAME', game);
     this.server.emit('set/GAMES', this.gameService.games);
   }
 
@@ -202,10 +203,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   ) {
     const { zone, amount } = payload;
     const { userId, room } = this.getUserData(socket);
+    console.log(room, 'place armies rooms');
     const game = this.gameService.placeArmies(room, userId, amount, zone);
     this.server.to(room).emit('set/UPDATE_GAME', game);
     const selectedZone = game.armiesThisTurn === 0 ? undefined : payload.zone;
     this.server.to(room).emit('set/SELECT_ZONE', { zone: selectedZone });
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/SURRENDER')
+  @CatchGatewayErrors()
+  surender(
+    @MessageBody() payload: unknown,
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { room, userId, user } = this.getUserData(socket);
+    const game = this.gameService.surrender(room, userId);
+    this.server.emit('set/UPDATE_GAME', game);
+    const message = this.chatService.setMessage('has surrendered', room, user);
+    this.server.to(room).emit('set/MESSAGES', message);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/ATTACK_PLAYER')
