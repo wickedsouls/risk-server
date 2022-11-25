@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { faker } from '../utils/faker';
 import {
   Game,
-  GameCard,
   GameStatus,
   Map,
   Player,
@@ -17,9 +16,11 @@ import { cloneDeep, keyBy, shuffle, values } from 'lodash';
 import { Colors } from './colors';
 import { getAttackResults } from './attack-results';
 import { createShuffledCards, getArmyFromCards } from './utils';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class GameService {
+  constructor(private chatService: ChatService) {}
   games: { [key: string]: Game } = {};
 
   static gameError(message: GameErrors) {
@@ -333,6 +334,9 @@ export class GameService {
     const attacker = game.map.zones[from];
     const defender = game.map.zones[to];
     const defenderId = defender.owner;
+    const attackingPlayer = this.getPlayerData(gameId, playerId);
+    const defendingPlayer = this.getPlayerData(gameId, defenderId);
+
     if (game.armiesThisTurn !== 0) {
       throw new Error(GameErrors.PLACE_ALL_ARMIES);
     }
@@ -350,10 +354,18 @@ export class GameService {
     console.log('------------------');
     console.log('amount:', amount);
 
-    const { attackerArmy, defenderArmy } = getAttackResults(
-      amount,
-      defender.armies,
+    this.chatService.setMessage('', gameId, attackingPlayer);
+    this.chatService.setMessage(
+      `${amount} vs ${defender.armies}`,
+      gameId,
+      attackingPlayer,
     );
+    const {
+      attackerArmy,
+      defenderArmy,
+      attackingDiceRolls,
+      defendingDiceRolls,
+    } = getAttackResults(amount, defender.armies);
 
     if (defenderArmy === 0) {
       attacker.armies -= amount;
@@ -369,7 +381,18 @@ export class GameService {
     } else {
       throw Error(GameErrors.UNEXPECTED_ATTACK_RESULTS);
     }
-
+    attackingDiceRolls.forEach((_, i) => {
+      this.chatService.setMessage(
+        `rolls ${attackingDiceRolls[i].join(',')}`,
+        gameId,
+        attackingPlayer,
+      );
+      this.chatService.setMessage(
+        `rolls ${defendingDiceRolls[i].join(',')}`,
+        gameId,
+        defendingPlayer,
+      );
+    });
     return game;
   }
 

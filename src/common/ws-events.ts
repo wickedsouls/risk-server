@@ -13,7 +13,9 @@ export interface ServerToClientEvents {
   'set/JOIN_GAME': (payload: Game) => void;
   'set/START_GAME': (payload: { gameId: string }) => void;
   'set/LEAVE_GAME': (payload: Game) => void;
-  'set/MESSAGES': (payload: Message) => void;
+  'set/MESSAGE': (payload: Message) => void;
+  'set/MESSAGES': (payload: Message[]) => void;
+  // 'set/MESSAGES': (payload: Message) => void;
   'set/CANCEL_GAME': (payload: { gameId: string }) => void;
   // Gameplay
   'set/UPDATE_GAME': (payload: Game) => void;

@@ -19,7 +19,7 @@ const throwDices = (attacker, defender) => {
     if (defenderValue >= attackerRolls[i]) attackerLeftover--;
     if (defenderValue < attackerRolls[i]) defenderLeftover--;
   });
-  return { attackerLeftover, defenderLeftover };
+  return { attackerLeftover, defenderLeftover, attackerRolls, defenderRolls };
 };
 
 const getDiceCount = (att, def) => {
@@ -32,6 +32,8 @@ const getDiceCount = (att, def) => {
 export const getAttackResults = (att, def) => {
   let attackerArmy = att;
   let defenderArmy = def;
+  const attackingDiceRolls = [];
+  const defendingDiceRolls = [];
   console.log('attackerArmy', attackerArmy);
   console.log('defenderArmy', defenderArmy);
   while (attackerArmy && defenderArmy) {
@@ -45,10 +47,10 @@ export const getAttackResults = (att, def) => {
     defenderArmy -= defenderDices;
     console.log('attackerArmy', attackerArmy);
     console.log('defenderArmy', defenderArmy);
-    const { attackerLeftover, defenderLeftover } = throwDices(
-      attackerDices,
-      defenderDices,
-    );
+    const { attackerLeftover, defenderLeftover, attackerRolls, defenderRolls } =
+      throwDices(attackerDices, defenderDices);
+    attackingDiceRolls.push(attackerRolls);
+    defendingDiceRolls.push(defenderRolls);
     console.log('attackerLeftover', attackerLeftover);
     console.log('defenderLeftover', defenderLeftover);
     attackerArmy += attackerLeftover;
@@ -57,7 +59,7 @@ export const getAttackResults = (att, def) => {
     console.log('defenderArmy', defenderArmy);
     // break
   }
-  return { attackerArmy, defenderArmy };
+  return { attackerArmy, defenderArmy, attackingDiceRolls, defendingDiceRolls };
 };
 
 // Old calculation model

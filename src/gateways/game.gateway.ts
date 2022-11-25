@@ -151,7 +151,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   ) {
     const { room, user } = this.getUserData(socket);
     const message = this.chatService.setMessage(data.message, room, user);
-    this.server.to(room).emit('set/MESSAGES', message);
+    this.server.to(room).emit('set/MESSAGE', message);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/CANCEL_GAME')
@@ -233,7 +233,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     const game = this.gameService.surrender(room, userId);
     this.server.emit('set/UPDATE_GAME', game);
     const message = this.chatService.setMessage('has surrendered', room, user);
-    this.server.to(room).emit('set/MESSAGES', message);
+    this.server.to(room).emit('set/MESSAGE', message);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/ATTACK_PLAYER')
@@ -253,7 +253,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
       zoneFrom,
       zoneTo,
     );
+    const chat = this.chatService.getMessagesForTheRoom(game.gameId);
     this.server.to(room).emit('set/UPDATE_GAME', game);
+    this.server.to(room).emit('set/MESSAGES', chat);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/MOVE_ARMY')

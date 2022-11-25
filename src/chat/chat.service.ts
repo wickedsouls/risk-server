@@ -9,11 +9,6 @@ import {
 @Injectable()
 export class ChatService {
   private chat: { [key: string]: Message[] } = {};
-  private server: Server<ClientToServerEvents, ServerToClientEvents>;
-
-  setServer(server: Server) {
-    this.server = server;
-  }
 
   createChatRoom(gameId) {
     this.chat[gameId] = [];

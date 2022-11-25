@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { GatewayModule } from './gateways/gateway.module';
 import { GameModule } from './game/game.module';
 import { ChatModule } from './chat/chat.module';
+import { HistoryModule } from './history/history.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ChatModule } from './chat/chat.module';
     GatewayModule,
     GameModule,
     ChatModule,
+    HistoryModule,
   ],
 })
 export class AppModule {}
