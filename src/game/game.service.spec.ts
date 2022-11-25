@@ -1,6 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GameService } from './game.service';
-import { Game, GameStatus, Player, PlayerStatus, TurnState } from './types';
+import {
+  Game,
+  GameCard,
+  GameStatus,
+  Player,
+  PlayerStatus,
+  TurnState,
+} from './types';
 import { gameStub, playerStub } from '../../test/stubs/game.stub';
 import { GameErrors } from '../common/errors';
 import { Earth } from './maps';
@@ -559,6 +566,49 @@ describe('GameService', () => {
       }
       service.eliminatePlayer(game.gameId, attackerId, defenderId);
       expect(players[1].status).toBe(PlayerStatus.Defeat);
+    });
+  });
+
+  describe('Game card', () => {
+    it('should get a card', async () => {
+      const { game, players } = await startFreshGameWithPlayers(6);
+      service.addCard(game.gameId, players[0].id);
+      expect(game.players[0].cards.length).toBe(1);
+      console.log(game.players[0].cards, 'cards');
+      const cards = [
+        GameCard.King,
+        GameCard.Jack,
+        GameCard.Queen,
+        GameCard.Ace,
+      ];
+      expect(game.gameCards.length).toBe(43);
+      expect(cards).toContain(game.players[0].cards[0]);
+    });
+    it('should use game card', async () => {
+      const { game } = await startFreshGameWithPlayers(6);
+      game.players[0].cards = [GameCard.Jack, GameCard.Jack, GameCard.Jack];
+      game.armiesThisTurn = 10;
+      service.useCards(game.gameId, game.players[0].id);
+      expect(game.armiesFromCards).toBe(4);
+      expect(game.armiesThisTurn).toBe(14);
+      expect(game.players[0].cards.length).toBe(0);
+      expect(game.setsOfCardsUsed).toBe(1);
+      game.players[0].cards = [GameCard.Jack, GameCard.Jack, GameCard.Ace];
+      service.useCards(game.gameId, game.players[0].id);
+      expect(game.armiesFromCards).toBe(6);
+      expect(game.armiesThisTurn).toBe(20);
+      expect(game.setsOfCardsUsed).toBe(2);
+      game.players[0].cards = [
+        GameCard.Jack,
+        GameCard.Queen,
+        GameCard.Jack,
+        GameCard.King,
+      ];
+      service.useCards(game.gameId, game.players[0].id);
+      expect(game.armiesFromCards).toBe(8);
+      expect(game.armiesThisTurn).toBe(28);
+      expect(game.setsOfCardsUsed).toBe(3);
+      expect(game.players[0].cards.length).toBe(1);
     });
   });
   describe('Attack continent', () => {

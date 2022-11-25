@@ -210,6 +210,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     this.server.to(room).emit('set/SELECT_ZONE', { zone: selectedZone });
   }
 
+  @SubscribeMessage<keyof ClientToServerEvents>('request/USE_CARDS')
+  @CatchGatewayErrors()
+  @LogEvents()
+  useCards(
+    @MessageBody() payload: { zone: string; amount: number },
+    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
+  ) {
+    const { userId, room } = this.getUserData(socket);
+    console.log(room, 'use cards');
+    const game = this.gameService.useCards(room, userId);
+    this.server.to(room).emit('set/UPDATE_GAME', game);
+  }
+
   @SubscribeMessage<keyof ClientToServerEvents>('request/SURRENDER')
   @CatchGatewayErrors()
   surender(

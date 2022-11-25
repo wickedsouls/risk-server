@@ -12,6 +12,13 @@ export interface CreateGameData {
   maxPlayers: number;
 }
 
+export enum GameCard {
+  'Jack' = 'Joker',
+  'Queen' = 'Queen',
+  'King' = 'King',
+  'Ace' = 'Ace',
+}
+
 export enum GameStatus {
   'Registering' = 'Registering',
   'InProgress' = 'InProgress',
@@ -39,6 +46,7 @@ export interface Player {
   color?: string;
   status?: PlayerStatus;
   title?: string;
+  cards?: GameCard[];
 }
 
 export interface Game {
@@ -52,12 +60,15 @@ export interface Game {
   maxPlayers: number;
   minPlayers: number;
   winner?: Player;
+  setsOfCardsUsed: number;
 
   currentPlayer?: Player;
   currentPlayerIndex?: number;
   map?: Map<string, string>;
   armiesThisTurn?: number;
+  armiesFromCards?: number;
   turnState?: TurnState;
+  gameCards?: GameCard[];
 }
 
 export interface Map<Z, C> {

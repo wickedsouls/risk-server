@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { faker } from '../utils/faker';
 import {
   Game,
+  GameCard,
   GameStatus,
   Map,
   Player,
@@ -15,6 +16,7 @@ import { passwordEncryption } from '../utils/password-encription';
 import { cloneDeep, keyBy, shuffle, values } from 'lodash';
 import { Colors } from './colors';
 import { getAttackResults } from './attack-results';
+import { createShuffledCards, getArmyFromCards } from './utils';
 
 @Injectable()
 export class GameService {
@@ -117,6 +119,10 @@ export class GameService {
       createdBy: { id: player.id, username: player.username },
       gameStatus: GameStatus.Registering,
       createdAt: new Date(),
+      armiesThisTurn: 0,
+      armiesFromCards: 0,
+      setsOfCardsUsed: 0,
+      gameCards: createShuffledCards(), // TODO: No not return to user
     };
     this.games[gameId] = game;
     return game;
@@ -203,6 +209,7 @@ export class GameService {
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
     game.armiesThisTurn = 0;
+    game.armiesFromCards = 0;
 
     game.currentPlayerIndex++;
     game.currentPlayer = game.players[game.currentPlayerIndex];
@@ -276,6 +283,7 @@ export class GameService {
     }
     game.map.zones[zoneName].armies += amount;
     game.armiesThisTurn -= amount;
+    game.armiesFromCards = 0;
     if (game.armiesThisTurn === 0) {
       game.turnState = TurnState.Attack;
     }
@@ -369,11 +377,11 @@ export class GameService {
     const { map } = this.getGameById(gameId);
     const continentName = map.zones[zoneName].continent;
     const ownedZones = values(map.zones).filter((z) => {
-      // console.log(z.owner);
       return z.owner === playerId && z.continent === continentName;
     });
     if (map.continents[continentName].zoneCount === ownedZones.length) {
       map.continents[continentName].owner = playerId;
+      this.addCard(gameId, playerId);
       return true;
     }
     return false;
@@ -387,12 +395,39 @@ export class GameService {
     }
   }
 
-  addCard() {}
+  addCard(gameId: string, playerId: string) {
+    const game = this.getGameById(gameId);
+    const player = this.getPlayerData(gameId, playerId);
+    const [card] = game.gameCards.splice(0, 1);
+    player.cards ? player.cards.push(card) : (player.cards = [card]);
+    if (game?.gameCards.length === 0) {
+      game.gameCards = createShuffledCards();
+    }
+  }
 
-  useCard() {}
+  useCards(gameId: string, playerId: string) {
+    console.log('-----------');
+    const game = this.getGameById(gameId);
+    this.checkIfPlayerIsInTheGame(gameId, playerId);
+    this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
+    const player = this.getPlayerData(gameId, playerId);
+    const result = getArmyFromCards(player.cards || [], game.setsOfCardsUsed);
+    if (result) {
+      const { cards, army, incrementCount } = result;
+      console.log('result.cards', cards);
+      console.log('result.incrementCount', incrementCount);
+      console.log('result.army', army);
+      player.cards = cards;
+      game.armiesFromCards = army;
+      game.armiesThisTurn += army;
+      game.setsOfCardsUsed++;
+    } else {
+      console.log('no result');
+    }
+    return game;
+  }
 
   surrender(gameId: string, playerId: string) {
-    // TODO: check for win
     const game = this.getGameById(gameId);
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     game.players = game.players.map((player: Player): Player => {
