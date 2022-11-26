@@ -50,10 +50,7 @@ export interface ClientToServerEvents {
   'request/SEND_MESSAGE': (payload: { message: string }) => void;
   'request/CANCEL_GAME': (payload: { gameId: string }) => void;
   // Gameplay
-  'request/END_TURN': (
-    payload: { gameId: string },
-    ack: (data: Game | GameError) => void,
-  ) => void;
+  'request/END_TURN': (ack: (data: Game | GameError) => void) => void;
   'request/PLACE_ARMIES': (payload: {
     gameId: string;
     zone: string;

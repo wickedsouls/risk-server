@@ -49,15 +49,6 @@ export interface Player {
   cards?: GameCard[];
 }
 
-export enum EventType {
-  'RollDice' = 'RollDice',
-}
-export interface GameHistory {
-  type: EventType;
-  createdAt: Date;
-  data: { [key: string]: any };
-}
-
 export interface Game {
   createdBy?: Player;
   createdAt: Date;
@@ -70,6 +61,7 @@ export interface Game {
   minPlayers: number;
   winner?: Player;
   setsOfCardsUsed: number;
+  timeout: number;
 
   currentPlayer?: Player;
   currentPlayerIndex?: number;

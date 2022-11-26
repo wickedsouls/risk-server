@@ -19,6 +19,7 @@ import { ChatService } from '../chat/chat.service';
 import { GameErrors } from '../common/errors';
 import { CatchGatewayErrors } from '../decorators/catch-gateway-errors';
 import { Earth } from '../game/maps';
+import { from, Observable, BehaviorSubject } from 'rxjs';
 
 const LogEvents = (): MethodDecorator => {
   return function (
@@ -69,11 +70,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   }
 
   getUserData(socket: ClientSocket) {
-    console.log('socket.data.user', socket.data.user);
     if (!socket.data?.user?.id) {
       throw new Error(GameErrors.MISSING_USER_PAYLOAD);
     }
-    console.log(socket.rooms, 'socket room');
     return {
       room: Array.from(socket.rooms)[1],
       userId: socket.data.user.id,
@@ -104,7 +103,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     const { gameId } = payload;
     const { userId } = this.getUserData(socket);
     this.gameService.startGame(gameId, userId);
-    const game = this.gameService.initGame(gameId, Earth);
+    const game = this.gameService.initGame(gameId, Earth, () => {
+      this.endTurn(socket);
+    });
     this.server.emit('set/GAMES', this.gameService.games);
     this.server.to(gameId).emit('set/START_GAME', game);
   }
@@ -184,12 +185,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/END_TURN')
   @CatchGatewayErrors()
-  endTurn(
-    @MessageBody() payload: { gameId: string },
-    @ConnectedSocket() socket: Socket<ServerToClientEvents>,
-  ) {
+  endTurn(@ConnectedSocket() socket: Socket<ServerToClientEvents>) {
     const { userId, room } = this.getUserData(socket);
-    const game = this.gameService.endTurn(payload.gameId, userId);
+    const game = this.gameService.endTurn(room, userId, () => {
+      this.endTurn(socket);
+    });
     this.server.to(room).emit('set/UPDATE_GAME', game);
     return game;
   }

@@ -22,6 +22,8 @@ import { ChatService } from '../chat/chat.service';
 export class GameService {
   constructor(private chatService: ChatService) {}
   games: { [key: string]: Game } = {};
+  playerTurnTimeout: { [key: string]: ReturnType<typeof setTimeout> } = {};
+  expiredPlayerTimer: string[] = [];
 
   static gameError(message: GameErrors) {
     return { error: true, message };
@@ -123,6 +125,7 @@ export class GameService {
       armiesThisTurn: 0,
       armiesFromCards: 0,
       setsOfCardsUsed: 0,
+      timeout: 20,
       gameCards: createShuffledCards(), // TODO: No not return to user
     };
     this.games[gameId] = game;
@@ -150,7 +153,7 @@ export class GameService {
     return game;
   }
 
-  initGame(gameId: string, map: Map<string, string>) {
+  initGame(gameId: string, map: Map<string, string>, endTurn: () => void) {
     const game = this.getGameById(gameId);
     // TODO: add options to shuffle players, colors and zones
     // Load map
@@ -167,6 +170,11 @@ export class GameService {
     this.distributeLands(game);
     // Generate army
     this.generateArmy(gameId);
+    const timeout = (30 + game.armiesThisTurn * 5) * 1000;
+    game.timeout = timeout;
+    this.playerTurnTimeout[gameId] = setTimeout(() => {
+      endTurn();
+    }, timeout);
     return game;
   }
 
@@ -205,10 +213,11 @@ export class GameService {
     game.map.zones = keyBy(mappedZones, 'name');
   }
 
-  endTurn(gameId: string, playerId: string) {
+  endTurn(gameId: string, playerId: string, endTurn?: () => void) {
     const game = this.getGameById(gameId);
     this.checkIfPlayerIsInTheGame(gameId, playerId);
-    this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
+    this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId, !!endTurn);
+
     game.armiesThisTurn = 0;
     game.armiesFromCards = 0;
 
@@ -228,6 +237,13 @@ export class GameService {
     }
     this.setTurnState(gameId, TurnState.PlaceArmies);
     this.generateArmy(game.gameId);
+    // TODO: move this to separate method
+    const timeout = (30 + game.armiesThisTurn * 5) * 1000;
+    game.timeout = timeout;
+    clearTimeout(this.playerTurnTimeout[gameId]);
+    this.playerTurnTimeout[gameId] = setTimeout(() => {
+      endTurn();
+    }, timeout);
     return game;
   }
 
@@ -238,7 +254,12 @@ export class GameService {
     return player;
   }
 
-  checkIfItsPlayersTurn(currentPlayerId: string, playerId: string) {
+  checkIfItsPlayersTurn(
+    currentPlayerId: string,
+    playerId: string,
+    skipValidation?: boolean,
+  ) {
+    if (skipValidation) return;
     if (currentPlayerId !== playerId) {
       throw new Error(GameErrors.UNAUTHORIZED);
     }
