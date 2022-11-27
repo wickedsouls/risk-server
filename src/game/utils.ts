@@ -64,26 +64,21 @@ export const getArmyFromCards = (cards: GameCard[], incrementCount) => {
 
   if (withJoker) {
     const idx = cards.findIndex((v) => v === GameCard.Ace);
-    console.log('With joker');
     cards.splice(idx, 1);
     cards.splice(0, 1);
     cards.splice(0, 1);
     addArmies();
   }
   if (queens.length >= 3) {
-    console.log('One');
     updateCards(1);
     addArmies();
   } else if (kings.length >= 3) {
-    console.log('Two');
     updateCards(2);
     addArmies();
   } else if (aces.length >= 3) {
-    console.log('Three');
     updateCards(3);
     addArmies();
   } else if (differentCards) {
-    console.log('Different cards');
     addArmies();
     const diffCards = [GameCard.Jack, GameCard.Queen, GameCard.King];
     for (let i = 1; i <= diffCards.length; i++) {

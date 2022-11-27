@@ -23,7 +23,6 @@ export class GameService {
   constructor(private chatService: ChatService) {}
   games: { [key: string]: Game } = {};
   playerTurnTimeout: { [key: string]: ReturnType<typeof setTimeout> } = {};
-  expiredPlayerTimer: string[] = [];
 
   static gameError(message: GameErrors) {
     return { error: true, message };
@@ -170,11 +169,7 @@ export class GameService {
     this.distributeLands(game);
     // Generate army
     this.generateArmy(gameId);
-    const timeout = (30 + game.armiesThisTurn * 5) * 1000;
-    game.timeout = timeout;
-    this.playerTurnTimeout[gameId] = setTimeout(() => {
-      endTurn();
-    }, timeout);
+    this.setTimeToAct(game, endTurn);
     return game;
   }
 
@@ -225,8 +220,9 @@ export class GameService {
     game.currentPlayer = game.players[game.currentPlayerIndex];
     while (
       game.currentPlayer &&
-      (game.currentPlayer.status === PlayerStatus.Defeat ||
-        game.currentPlayer.status === PlayerStatus.Surrender)
+      [PlayerStatus.Defeat, PlayerStatus.Surrender, PlayerStatus.Win].includes(
+        game.currentPlayer.status,
+      )
     ) {
       game.currentPlayerIndex++;
       game.currentPlayer = game.players[game.currentPlayerIndex];
@@ -237,14 +233,19 @@ export class GameService {
     }
     this.setTurnState(gameId, TurnState.PlaceArmies);
     this.generateArmy(game.gameId);
-    // TODO: move this to separate method
+
+    this.setTimeToAct(game, endTurn);
+    return game;
+  }
+
+  setTimeToAct(game: Game, cb) {
+    if (game.gameStatus !== GameStatus.InProgress) return;
+    clearTimeout(this.playerTurnTimeout[game.gameId]);
     const timeout = (30 + game.armiesThisTurn * 5) * 1000;
     game.timeout = timeout;
-    clearTimeout(this.playerTurnTimeout[gameId]);
-    this.playerTurnTimeout[gameId] = setTimeout(() => {
-      endTurn();
+    this.playerTurnTimeout[game.gameId] = setTimeout(() => {
+      cb();
     }, timeout);
-    return game;
   }
 
   checkIfPlayerIsInTheGame(gameId: string, playerId: string) {

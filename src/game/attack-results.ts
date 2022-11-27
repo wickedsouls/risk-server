@@ -10,9 +10,6 @@ const throwDices = (attacker, defender) => {
   const attackerRolls = newRandomNumbers(attacker);
   const defenderRolls = newRandomNumbers(defender);
 
-  console.log('attackerRolls:', attackerRolls);
-  console.log('defenderRolls:', defenderRolls);
-
   let attackerLeftover = attacker;
   let defenderLeftover = defender;
   defenderRolls.forEach((defenderValue, i) => {
@@ -34,47 +31,20 @@ export const getAttackResults = (att, def) => {
   let defenderArmy = def;
   const attackingDiceRolls = [];
   const defendingDiceRolls = [];
-  console.log('attackerArmy', attackerArmy);
-  console.log('defenderArmy', defenderArmy);
   while (attackerArmy && defenderArmy) {
     const { attackerDices, defenderDices } = getDiceCount(
       attackerArmy,
       defenderArmy,
     );
-    console.log('attackerDices:', attackerDices);
-    console.log('defenderDices:', defenderDices);
     attackerArmy -= attackerDices;
     defenderArmy -= defenderDices;
-    console.log('attackerArmy', attackerArmy);
-    console.log('defenderArmy', defenderArmy);
     const { attackerLeftover, defenderLeftover, attackerRolls, defenderRolls } =
       throwDices(attackerDices, defenderDices);
     attackingDiceRolls.push(attackerRolls);
     defendingDiceRolls.push(defenderRolls);
-    console.log('attackerLeftover', attackerLeftover);
-    console.log('defenderLeftover', defenderLeftover);
     attackerArmy += attackerLeftover;
     defenderArmy += defenderLeftover;
-    console.log('attackerArmy', attackerArmy);
-    console.log('defenderArmy', defenderArmy);
     // break
   }
   return { attackerArmy, defenderArmy, attackingDiceRolls, defendingDiceRolls };
 };
-
-// Old calculation model
-// const damage = amount - defender.armies;
-// if (damage > 0) {
-//   // win - attacker wins
-//   attacker.armies -= amount;
-//   defender.owner = attacker.owner;
-//   defender.armies = damage;
-//   this.loseContinent(gameId, to);
-//   this.winContinent(gameId, playerId, to);
-//   this.eliminatePlayer(gameId, playerId, defenderId);
-//   this.checkForWin(gameId);
-// } else if (damage <= 0) {
-//   // lose - attacker loses
-//   attacker.armies -= amount;
-//   defender.armies = defender.armies - amount || 1;
-// }
