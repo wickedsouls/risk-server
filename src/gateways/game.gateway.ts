@@ -19,7 +19,6 @@ import { ChatService } from '../chat/chat.service';
 import { GameErrors } from '../common/errors';
 import { CatchGatewayErrors } from '../decorators/catch-gateway-errors';
 import { Earth } from '../game/maps';
-import { from, Observable, BehaviorSubject } from 'rxjs';
 
 const LogEvents = (): MethodDecorator => {
   return function (
@@ -27,7 +26,6 @@ const LogEvents = (): MethodDecorator => {
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
-    console.log(target, propertyKey, descriptor);
     return descriptor;
   };
 };
@@ -46,14 +44,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     private chatService: ChatService,
   ) {}
 
-  afterInit() {
-    // const game = createTestingGame({
-    //   players: [],
-    //   currentPlayer: { id: '636a78f3ae986c6b8bc61ee5', username: 'wicked' },
-    //   gameStatus: GameStatus.Registering,
-    // });
-    // this.gameService.games[game.gameId] = game;
-  }
+  afterInit() {}
 
   async handleConnection(socket: ClientSocket) {
     const token = await socket.handshake.auth.token;
@@ -203,7 +194,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   ) {
     const { zone, amount } = payload;
     const { userId, room } = this.getUserData(socket);
-    console.log(room, 'place armies rooms');
     const game = this.gameService.placeArmies(room, userId, amount, zone);
     this.server.to(room).emit('set/UPDATE_GAME', game);
     const selectedZone = game.armiesThisTurn === 0 ? undefined : payload.zone;
@@ -218,7 +208,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     @ConnectedSocket() socket: Socket<ServerToClientEvents>,
   ) {
     const { userId, room } = this.getUserData(socket);
-    console.log(room, 'use cards');
     const game = this.gameService.useCards(room, userId);
     this.server.to(room).emit('set/UPDATE_GAME', game);
   }

@@ -99,7 +99,7 @@ export const shuffleZones = (
 
   return zones.map((zone, i) => {
     const modulus = i % players.length;
-    return { ...zone, owner: reversedPlayers[modulus].id };
+    return { ...zone, owner: reversedPlayers[modulus].id, armies: 1 };
   });
 };
 
