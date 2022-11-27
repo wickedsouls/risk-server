@@ -15,7 +15,12 @@ import { passwordEncryption } from '../utils/password-encription';
 import { cloneDeep, keyBy, shuffle, values } from 'lodash';
 import { Colors } from './colors';
 import { getAttackResults } from './attack-results';
-import { createShuffledCards, getArmyFromCards } from './utils';
+import {
+  checkIfDistributionIsCorrect,
+  createShuffledCards,
+  getArmyFromCards,
+  shuffleZones,
+} from './utils';
 import { ChatService } from '../chat/chat.service';
 
 @Injectable()
@@ -155,19 +160,14 @@ export class GameService {
   initGame(gameId: string, map: Map<string, string>, endTurn: () => void) {
     const game = this.getGameById(gameId);
     // TODO: add options to shuffle players, colors and zones
-    // Load map
     this.loadMap(game, cloneDeep(map));
     // Shuffle players
     // this.shufflePlayers(game);
-    // Assign colors
     this.assignPlayerColors(game);
-    // Assign active player
     game.currentPlayer = game.players[0];
     game.currentPlayerIndex = 0;
     game.turnState = TurnState.PlaceArmies;
-    // Distribute land
     this.distributeLands(game);
-    // Generate army
     this.generateArmy(gameId);
     this.setTimeToAct(game, endTurn);
     return game;
@@ -194,17 +194,13 @@ export class GameService {
   }
 
   distributeLands(game: Game) {
-    const zones = shuffle(values(game.map.zones));
     const { players } = game;
-    // Reverse players, so that the last one gets more armies in case
-    // zones are not equally divided
-    const reversedPlayers = players.slice().reverse();
-
-    const mappedZones = zones.map((zone, i) => {
-      const modulus = i % players.length;
-      return { ...zone, armies: 1, owner: reversedPlayers[modulus].id };
-    });
-
+    const mappedZones = shuffleZones(game.map.zones, players);
+    const correct = checkIfDistributionIsCorrect(
+      game.map.continents,
+      mappedZones,
+    );
+    if (!correct) return this.distributeLands(game);
     game.map.zones = keyBy(mappedZones, 'name');
   }
 
@@ -324,9 +320,7 @@ export class GameService {
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     const zoneFrom = game.map.zones[from];
     const zoneTo = game.map.zones[to];
-    console.log('move');
     if (game.turnState !== TurnState.Move) {
-      console.log(game.turnState, TurnState.Move);
       throw new Error(GameErrors.TURN_STATE_INVALID);
     }
     if (zoneFrom.owner !== playerId || zoneTo.owner !== playerId) {
@@ -372,9 +366,6 @@ export class GameService {
     if (amount >= attacker.armies) {
       throw new Error(GameErrors.AMOUNT_TOO_LARGE);
     }
-
-    console.log('------------------');
-    console.log('amount:', amount);
 
     this.chatService.setMessage('', gameId, attackingPlayer);
     this.chatService.setMessage(
@@ -451,23 +442,17 @@ export class GameService {
   }
 
   useCards(gameId: string, playerId: string) {
-    console.log('-----------');
     const game = this.getGameById(gameId);
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
     const player = this.getPlayerData(gameId, playerId);
     const result = getArmyFromCards(player.cards || [], game.setsOfCardsUsed);
     if (result) {
-      const { cards, army, incrementCount } = result;
-      console.log('result.cards', cards);
-      console.log('result.incrementCount', incrementCount);
-      console.log('result.army', army);
+      const { cards, army } = result;
       player.cards = cards;
       game.armiesFromCards = army;
       game.armiesThisTurn += army;
       game.setsOfCardsUsed++;
-    } else {
-      console.log('no result');
     }
     return game;
   }

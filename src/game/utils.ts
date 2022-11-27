@@ -1,7 +1,7 @@
-import { GameCard, GameStatus, Player } from './types';
+import { Continent, GameCard, GameStatus, Player, Zone } from './types';
 import dotenv from 'dotenv';
 import { Earth } from './maps';
-import { shuffle } from 'lodash';
+import { shuffle, keyBy, values } from 'lodash';
 
 dotenv.config();
 
@@ -10,6 +10,7 @@ interface Options {
   currentPlayer: Player;
   gameStatus: GameStatus;
 }
+
 export const createTestingGame = (options: Options): any => {
   const { players, currentPlayer, gameStatus } = options;
   return {
@@ -87,4 +88,36 @@ export const getArmyFromCards = (cards: GameCard[], incrementCount) => {
     }
   }
   return { cards, army, incrementCount };
+};
+
+export const shuffleZones = (
+  _zones: { [key: string]: Zone<string, string> },
+  players: Player[],
+) => {
+  const zones = shuffle(values(_zones));
+  const reversedPlayers = players.slice().reverse();
+
+  return zones.map((zone, i) => {
+    const modulus = i % players.length;
+    return { ...zone, owner: reversedPlayers[modulus].id };
+  });
+};
+
+export const checkIfDistributionIsCorrect = (
+  _continents: { [key: string]: Continent<string> },
+  mappedZones: Zone<string, string>[],
+) => {
+  const continents = values(_continents);
+  let correct = true;
+  continents.forEach((continent) => {
+    const { name, zoneCount } = continent;
+    const continentZone = mappedZones.find((zone) => zone.continent === name);
+    const playerSameZoneCount = mappedZones.filter(
+      (zone) => zone.continent === name && zone.owner === continentZone?.owner,
+    );
+    if (playerSameZoneCount.length === zoneCount) {
+      correct = false;
+    }
+  });
+  return correct;
 };
