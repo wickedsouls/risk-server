@@ -1,5 +1,5 @@
-import { Player } from '../../src/game/types';
-import { CreateGameDto } from '../../src/gateways/dtos/create-game.dto';
+import { CreateGameDto, Player } from '../../src/game/types';
+import { Earth } from '../../src/game/maps';
 
 export const playerStub = (player: Partial<Player> = {}): Player => ({
   id: player.id || '1',
@@ -13,4 +13,5 @@ export const gameStub = (
   password: options.password,
   maxPlayers: options.maxPlayers || 6,
   minPlayers: options.minPlayers || 2,
+  map: Earth,
 });

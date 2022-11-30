@@ -5,13 +5,6 @@ import {
   ServerToClientEvents,
 } from '../common/ws-events';
 
-export interface CreateGameData {
-  isPrivate?: boolean;
-  password?: string;
-  minPlayers: number;
-  maxPlayers: number;
-}
-
 export enum GameCard {
   'Jack' = 'Joker',
   'Queen' = 'Queen',
@@ -38,6 +31,7 @@ export enum PlayerStatus {
   Defeat = 'Defeat',
   Deserter = 'Deserter',
   Surrender = 'Surrender',
+  InGame = 'InGame',
 }
 
 export interface Player {
@@ -46,6 +40,8 @@ export interface Player {
   color?: string;
   status?: PlayerStatus;
   title?: string;
+  isBot?: boolean;
+  botLevel?: number;
   cards?: GameCard[];
 }
 
@@ -62,6 +58,8 @@ export interface Game {
   winner?: Player;
   setsOfCardsUsed: number;
   timeout: number;
+  usePrecision?: boolean;
+  disableLogger?: boolean;
 
   currentPlayer?: Player;
   currentPlayerIndex?: number;
@@ -109,4 +107,19 @@ export interface Message {
   createdAt: Date;
   player: Player;
   message: string;
+}
+
+export interface CreateGameDto {
+  isPrivate?: boolean;
+  password?: string;
+  minPlayers: number;
+  maxPlayers: number;
+  map: Map<any, any>;
+}
+
+export interface StartGameOptions {
+  usePrecision?: boolean;
+  endTurn?: () => void;
+  shuffleColors?: boolean;
+  shufflePlayers?: boolean;
 }

@@ -9,6 +9,8 @@ import { ChatModule } from '../chat/chat.module';
 import { ChatService } from '../chat/chat.service';
 import { HistoryModule } from '../history/history.module';
 import { HistoryService } from '../history/history.service';
+import { GameBotService } from '../game-bot/game-bot.service';
+import { EventLoggerService } from '../event-logger/event-logger.service';
 
 @Module({
   providers: [
@@ -18,6 +20,8 @@ import { HistoryService } from '../history/history.service';
     AuthService,
     ChatService,
     HistoryService,
+    GameBotService,
+    EventLoggerService,
   ],
   imports: [AuthModule, UsersModule, ChatModule, HistoryModule],
 })

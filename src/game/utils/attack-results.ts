@@ -26,7 +26,7 @@ const getDiceCount = (att, def) => {
   return { attackerDices, defenderDices };
 };
 
-export const getAttackResults = (att, def) => {
+export const getDiceAttackResults = (att?: number, def?: number) => {
   let attackerArmy = att;
   let defenderArmy = def;
   const attackingDiceRolls = [];
@@ -45,6 +45,25 @@ export const getAttackResults = (att, def) => {
     attackerArmy += attackerLeftover;
     defenderArmy += defenderLeftover;
     // break
+  }
+  return { attackerArmy, defenderArmy, attackingDiceRolls, defendingDiceRolls };
+};
+
+export const getPreciseAttackResults = (att?: number, def?: number) => {
+  const result = def - att;
+  let attackerArmy, defenderArmy;
+  const attackingDiceRolls = [];
+  const defendingDiceRolls = [];
+  if (result > 0) {
+    // lose the attack
+    attackerArmy = 0;
+    defenderArmy = result;
+  } else if (result < 0) {
+    attackerArmy = att - def;
+    defenderArmy = 0;
+  } else if (result === 0) {
+    attackerArmy = 0;
+    defenderArmy = 1;
   }
   return { attackerArmy, defenderArmy, attackingDiceRolls, defendingDiceRolls };
 };

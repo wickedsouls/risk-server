@@ -19,6 +19,7 @@ export interface ServerToClientEvents {
   'set/CANCEL_GAME': (payload: { gameId: string }) => void;
   // Gameplay
   'set/UPDATE_GAME': (payload: Game) => void;
+  'set/BOT_ATTACK': (payload: { game: Game; chat: Message[] }) => void;
   'set/SELECT_ZONE_FROM': (payload: { zone?: string }) => void;
   'set/SELECT_ZONE_TO': (payload: { zone?: string }) => void;
   'set/SELECT_ZONE': (payload: { zone?: string }) => void;
@@ -69,4 +70,5 @@ export interface ClientToServerEvents {
   'request/USE_CARDS': () => void;
   'request/SURRENDER': () => void;
   'request/FINISH_ATTACK': () => void;
+  'request/ADD_AI_PLAYER': () => void;
 }

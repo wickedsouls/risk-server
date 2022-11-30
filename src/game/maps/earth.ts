@@ -1,4 +1,4 @@
-import { Continent, Map, Zone } from './types';
+import { Map } from '../types';
 
 type EarthContinents =
   | 'North America'

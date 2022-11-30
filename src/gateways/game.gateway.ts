@@ -14,11 +14,12 @@ import {
   ServerToClientEvents,
 } from '../common/ws-events';
 import { AuthService } from '../auth/auth.service';
-import { ClientSocket, CreateGameData } from '../game/types';
+import { ClientSocket, CreateGameDto, Game, Message } from '../game/types';
 import { ChatService } from '../chat/chat.service';
 import { GameErrors } from '../common/errors';
 import { CatchGatewayErrors } from '../decorators/catch-gateway-errors';
 import { Earth } from '../game/maps';
+import { GameBotService } from '../game-bot/game-bot.service';
 
 const LogEvents = (): MethodDecorator => {
   return function (
@@ -42,6 +43,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     private authService: AuthService,
     private gameService: GameService,
     private chatService: ChatService,
+    private gameBotService: GameBotService,
   ) {}
 
   afterInit() {}
@@ -85,33 +87,38 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     this.server.emit('set/GAMES', this.gameService.games);
   }
 
+  @SubscribeMessage<keyof ClientToServerEvents>('request/CREATE_GAME')
+  @CatchGatewayErrors()
+  async createGame(
+    @MessageBody() data: CreateGameDto,
+    @ConnectedSocket() socket: Socket,
+  ) {
+    const { user } = this.getUserData(socket);
+    const game = await this.gameService.createGame(user, {
+      ...data,
+      map: Earth,
+    });
+    this.chatService.createChatRoom(game.gameId);
+    await this.joinTheGame(
+      { gameId: game.gameId, password: data.password },
+      socket,
+    );
+    return game;
+  }
+
   @SubscribeMessage<keyof ClientToServerEvents>('request/START_GAME')
   @CatchGatewayErrors()
-  startTheGame(
+  async startTheGame(
     @MessageBody() payload: { gameId: string },
     @ConnectedSocket() socket: Socket,
   ) {
     const { gameId } = payload;
     const { userId } = this.getUserData(socket);
-    this.gameService.startGame(gameId, userId);
-    const game = this.gameService.initGame(gameId, Earth, () => {
-      this.endTurn(socket);
-    });
+    const game = this.gameService.startGame(gameId, userId);
+    const chat = this.chatService.getMessagesForTheRoom(gameId);
     this.server.emit('set/GAMES', this.gameService.games);
     this.server.to(gameId).emit('set/START_GAME', game);
-  }
-
-  @SubscribeMessage<keyof ClientToServerEvents>('request/CREATE_GAME')
-  @CatchGatewayErrors()
-  async createGame(
-    @MessageBody() data: CreateGameData,
-    @ConnectedSocket() socket: Socket,
-  ) {
-    const { user } = this.getUserData(socket);
-    const game = await this.gameService.createGame(data, user);
-    this.chatService.createChatRoom(game.gameId);
-    this.server.emit('set/GAMES', this.gameService.games);
-    return game;
+    this.useGameBot(game, chat);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/JOIN_GAME')
@@ -128,6 +135,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     this.server.emit('set/GAMES', this.gameService.games);
     socket.join(gameId);
     return { game, chat };
+  }
+
+  @SubscribeMessage<keyof ClientToServerEvents>('request/ADD_AI_PLAYER')
+  @CatchGatewayErrors()
+  async addAiPlayer(@ConnectedSocket() socket: Socket<ServerToClientEvents>) {
+    const { userId, room } = this.getUserData(socket);
+    const game = this.gameService.addAiPlayer(room, userId);
+    this.server.to(room).emit('set/JOIN_GAME', game);
+    this.server.emit('set/GAMES', this.gameService.games);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/GET_ALL_GAMES')
@@ -178,15 +194,27 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   @CatchGatewayErrors()
   endTurn(@ConnectedSocket() socket: Socket<ServerToClientEvents>) {
     const { userId, room } = this.getUserData(socket);
-    const game = this.gameService.endTurn(room, userId, () => {
-      this.endTurn(socket);
-    });
+    const game = this.gameService.endTurn(room, userId);
+    const chat = this.chatService.getMessagesForTheRoom(room);
     this.server.to(room).emit('set/UPDATE_GAME', game);
+    this.useGameBot(game, chat);
     return game;
   }
 
+  useGameBot(game: Game, chat: Message[]) {
+    const { username, isBot } = game.currentPlayer;
+    console.log('bot move', username, isBot);
+    if (!game.currentPlayer.isBot) return;
+    console.log('place armies');
+    this.gameBotService.placeArmies(game);
+    console.log('attack');
+    this.gameBotService.attack(game);
+    console.log('end move');
+    this.gameBotService.endTurn(game);
+    this.server.to(game.gameId).emit('set/BOT_ATTACK', { chat, game });
+  }
+
   @SubscribeMessage<keyof ClientToServerEvents>('request/PLACE_ARMIES')
-  @CatchGatewayErrors()
   @LogEvents()
   placeArmies(
     @MessageBody() payload: { zone: string; amount: number },
@@ -235,13 +263,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   ) {
     const { room, userId } = this.getUserData(socket);
     const { zoneFrom, zoneTo, amount } = payload;
-    const game = this.gameService.attack(
-      room,
-      userId,
+    const game = this.gameService.attack({
+      gameId: room,
+      playerId: userId,
       amount,
-      zoneFrom,
-      zoneTo,
-    );
+      from: zoneFrom,
+      to: zoneTo,
+    });
     const chat = this.chatService.getMessagesForTheRoom(game.gameId);
     this.server.to(room).emit('set/UPDATE_GAME', game);
     this.server.to(room).emit('set/MESSAGES', chat);
@@ -257,6 +285,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   ) {
     const { room, userId } = this.getUserData(socket);
     const { zoneFrom, zoneTo, amount } = payload;
+    const chat = this.chatService.getMessagesForTheRoom(room);
     const game = this.gameService.moveArmy(
       room,
       userId,
@@ -265,6 +294,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
       zoneTo,
     );
     this.server.to(room).emit('set/UPDATE_GAME', game);
+    this.useGameBot(game, chat);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/SELECT_ZONE_FROM')
