@@ -202,16 +202,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   }
 
   useGameBot(game: Game, chat: Message[]) {
-    const { username, isBot } = game.currentPlayer;
-    console.log('bot move', username, isBot);
-    if (!game.currentPlayer.isBot) return;
-    console.log('place armies');
-    this.gameBotService.placeArmies(game);
-    console.log('attack');
-    this.gameBotService.attack(game);
-    console.log('end move');
-    this.gameBotService.endTurn(game);
+    const { isBot, id } = game.currentPlayer;
+    if (!isBot) return;
+    this.gameBotService.useBot(game, id);
     this.server.to(game.gameId).emit('set/BOT_ATTACK', { chat, game });
+    if (game.currentPlayer.isBot) {
+      setTimeout(() => {
+        this.useGameBot(game, chat);
+      }, 2000);
+    }
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/PLACE_ARMIES')

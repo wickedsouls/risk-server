@@ -1,5 +1,5 @@
 import { playerStub } from '../../../test/stubs/game.stub';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, values } from 'lodash';
 import { GameService } from '../game.service';
 import { Earth } from '../maps';
 
@@ -67,7 +67,7 @@ export const createTestingGame = async (
       shuffleColors: false,
     });
   }
-  if (distributeLands?.all) {
+  if (distributeLands?.all && distributeLands?.playerId) {
     const { playerId } = distributeLands;
     for (const zone in game.map.zones) {
       game.map.zones[zone].owner = playerId;
@@ -75,6 +75,16 @@ export const createTestingGame = async (
     for (const continent in game.map.continents) {
       game.map.continents[continent].owner = playerId;
     }
+  }
+  if (distributeLands?.continents && distributeLands?.playerId) {
+    const { continents, playerId } = distributeLands;
+    continents.forEach((continent) => {
+      game.map.continents[continent].owner = playerId;
+      const zones = values(game.map.zones).filter(
+        (zone) => zone.continent === continent,
+      );
+      zones.forEach((zone) => (game.map.zones[zone.name].owner = playerId));
+    });
   }
   return game;
 };

@@ -2,7 +2,7 @@ import { Continent, Zone } from '../types';
 import { values } from 'lodash';
 
 export const checkIfDistributionIsCorrect = (
-  _continents: { [key: string]: Continent<string> },
+  _continents: { [key: string]: Continent<string, string> },
   mappedZones: Zone<string, string>[],
 ) => {
   const continents = values(_continents);

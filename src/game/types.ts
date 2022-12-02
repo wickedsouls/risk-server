@@ -76,7 +76,7 @@ export interface Map<Z, C> {
     [key: string]: Zone<Z, C>;
   };
   continents: {
-    [key: string]: Continent<C>;
+    [key: string]: Continent<C, Z>;
   };
 }
 
@@ -89,11 +89,12 @@ export interface Zone<Z, C> {
   continent: C;
 }
 
-export interface Continent<C> {
+export interface Continent<C, Z> {
   name: C;
   reward: number;
   owner?: string;
   zoneCount: number;
+  entryPoints: Z[];
 }
 
 export type ClientSocket = Socket<

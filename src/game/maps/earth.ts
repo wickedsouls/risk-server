@@ -54,12 +54,42 @@ type EarthZones =
 export const Earth: Map<EarthZones, EarthContinents> = {
   name: 'Earth',
   continents: {
-    'North America': { name: 'North America', reward: 5, zoneCount: 9 },
-    'South America': { name: 'South America', reward: 2, zoneCount: 4 },
-    Africa: { name: 'Africa', reward: 3, zoneCount: 6 },
-    Europe: { name: 'Europe', reward: 5, zoneCount: 7 },
-    Australia: { name: 'Australia', reward: 2, zoneCount: 4 },
-    Asia: { name: 'Asia', reward: 7, zoneCount: 12 },
+    'North America': {
+      name: 'North America',
+      reward: 5,
+      zoneCount: 9,
+      entryPoints: ['Alaska', 'Greenland', 'Central America'],
+    },
+    'South America': {
+      name: 'South America',
+      reward: 2,
+      zoneCount: 4,
+      entryPoints: ['Venezuela', 'Brazil'],
+    },
+    Africa: {
+      name: 'Africa',
+      reward: 3,
+      zoneCount: 6,
+      entryPoints: ['North Africa', 'Egypt', 'East Africa'],
+    },
+    Europe: {
+      name: 'Europe',
+      reward: 5,
+      zoneCount: 7,
+      entryPoints: ['Iceland', 'Ukraine', 'Southern Europe', 'Western Europe'],
+    },
+    Australia: {
+      name: 'Australia',
+      reward: 2,
+      zoneCount: 4,
+      entryPoints: ['Indonesia'],
+    },
+    Asia: {
+      name: 'Asia',
+      reward: 7,
+      zoneCount: 12,
+      entryPoints: ['Siam', 'Ural', 'Middle East', 'Kamchatka', 'Afghanistan'],
+    },
   },
   zones: {
     Argentina: {
@@ -265,7 +295,6 @@ export const Earth: Map<EarthZones, EarthContinents> = {
         'East Africa',
         'Middle East',
         'Southern Europe',
-        'Northern Europe',
       ],
     },
     'Middle East': {
