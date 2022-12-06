@@ -349,7 +349,9 @@ export class GameService {
       throw new Error(GameErrors.GAME_NOT_IN_PROGRESS);
     }
     this.checkIfPlayerIsInTheGame(gameId, playerId);
-    this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
+    if (!game.currentPlayer.isBot) {
+      this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
+    }
 
     game.armiesThisTurn = 0;
     game.armiesFromCards = 0;
@@ -459,7 +461,6 @@ export class GameService {
     }
     game.map.zones[from].armies -= amount;
     game.map.zones[to].armies += amount;
-    this.endTurn(gameId, playerId);
     this.eventLogger.saveGameLogs({
       gameId,
       event: EventType.MOVE_ARMIES,
@@ -628,9 +629,6 @@ export class GameService {
         ? { ...player, status: PlayerStatus.Surrender }
         : player;
     });
-    if (game.currentPlayer.id === playerId) {
-      this.endTurn(gameId, playerId);
-    }
     this.checkForWin(gameId);
     this.eventLogger.saveGameLogs({
       gameId,

@@ -26,17 +26,18 @@ export class GameBotService {
     private readonly eventLogger: EventLoggerService,
   ) {}
 
-  defineAttackPaths(game: Game, botId: string) {
+  defineAttackPaths(game: Game, playerId: string) {
     const takenContinents = getTakenContinentsByEnemy(
       game.map.continents,
-      botId,
+      playerId,
     );
     const armiesThisTurn = game.armiesThisTurn;
+
     let depth = Math.ceil(armiesThisTurn / 2);
     depth = depth < 6 ? depth : 6;
     const pathToBreakContinent = getBestPathToBreakContinent(
       game,
-      botId,
+      playerId,
       depth,
     );
 
@@ -51,7 +52,7 @@ export class GameBotService {
         army: game.armiesThisTurn,
       };
     } else {
-      const path = getBestAttackPathForContinent(game, botId, depth);
+      const path = getBestAttackPathForContinent(game, playerId, depth);
       this.mainAttack = {
         path,
         strategy: Strategy.AttackUnclaimedContinent,
@@ -83,7 +84,6 @@ export class GameBotService {
     this.attack(game, playerId);
     this.attackWithOtherArmies(game, playerId);
     this.moveArmy(game, playerId);
-    this.endTurn(game);
   }
 
   placeArmies(game: Game, playerId: string) {
@@ -227,11 +227,5 @@ export class GameBotService {
         });
       });
     });
-  }
-
-  endTurn(game: Game) {
-    this.mainAttack = {};
-    if (game.gameStatus === GameStatus.Completed) return;
-    this.gameService.endTurn(game.gameId, game.currentPlayer.id);
   }
 }
