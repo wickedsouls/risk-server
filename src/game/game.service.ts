@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { faker } from '../utils/faker';
+import { rng } from '../utils/rng';
 import {
   CreateGameDto,
   Game,
@@ -89,6 +89,7 @@ export class GameService {
 
   checkIfPlayerOwnsTheZone(playerId: string, game: Game, zoneName: string) {
     if (game.map.zones[zoneName].owner !== playerId) {
+      console.log(GameErrors.NOT_YOUR_ZONE, playerId, zoneName);
       this.eventLogger.saveGameLogs({
         gameId: playerId,
         event: GameErrors.NOT_YOUR_ZONE,
@@ -133,7 +134,7 @@ export class GameService {
     if (isPrivate) {
       hash = await passwordEncryption.hashPassword(password);
     }
-    const gameId = faker.createName();
+    const gameId = rng.createName();
     const game: Game = {
       players: [],
       isPrivate,
@@ -231,7 +232,7 @@ export class GameService {
     if (game.gameStatus !== GameStatus.Registering) {
       throw new Error(GameErrors.REGISTRATION_HAS_ENDED);
     }
-    const botName = faker.createName();
+    const botName = rng.createName();
     const bot = {
       id: botName,
       username: botName,
@@ -342,10 +343,10 @@ export class GameService {
     if (game.gameStatus !== GameStatus.InProgress) {
       this.eventLogger.saveGameLogs({
         gameId,
-        event: GameErrors.GAME_HAS_NOT_STARTED,
+        event: GameErrors.GAME_NOT_IN_PROGRESS,
         data: game.gameStatus,
       });
-      throw new Error(GameErrors.GAME_HAS_NOT_STARTED);
+      throw new Error(GameErrors.GAME_NOT_IN_PROGRESS);
     }
     this.checkIfPlayerIsInTheGame(gameId, playerId);
     this.checkIfItsPlayersTurn(game.currentPlayer.id, playerId);
@@ -453,6 +454,7 @@ export class GameService {
       throw new Error(GameErrors.ZONE_IS_NOT_AN_NEIGHBOUR);
     }
     if (amount > 7 || amount >= zoneFrom.armies) {
+      console.log(amount, zoneFrom.name);
       throw new Error(GameErrors.AMOUNT_TOO_LARGE);
     }
     game.map.zones[from].armies -= amount;

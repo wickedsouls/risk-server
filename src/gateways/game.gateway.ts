@@ -209,6 +209,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     if (game.currentPlayer.isBot) {
       setTimeout(() => {
         this.useGameBot(game, chat);
+        this.server.to(game.gameId).emit('set/BOT_ATTACK', { chat, game });
       }, 2000);
     }
   }
@@ -250,6 +251,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     this.server.emit('set/UPDATE_GAME', game);
     const message = this.chatService.setMessage('has surrendered', room, user);
     this.server.to(room).emit('set/MESSAGE', message);
+    const chat = this.chatService.getMessagesForTheRoom(room);
+    this.useGameBot(game, chat);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/ATTACK_PLAYER')

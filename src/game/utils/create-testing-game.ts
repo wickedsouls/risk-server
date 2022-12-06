@@ -31,7 +31,7 @@ export const createTestingGame = async (
     minPlayers = 2,
     maxPlayers = 6,
     players = 6,
-    usePrecision,
+    usePrecision = true,
     createdById = '1',
     createdByName = 'user-1',
     start,
@@ -71,6 +71,7 @@ export const createTestingGame = async (
     const { playerId } = distributeLands;
     for (const zone in game.map.zones) {
       game.map.zones[zone].owner = playerId;
+      game.map.zones[zone].armies = 1;
     }
     for (const continent in game.map.continents) {
       game.map.continents[continent].owner = playerId;
@@ -83,7 +84,10 @@ export const createTestingGame = async (
       const zones = values(game.map.zones).filter(
         (zone) => zone.continent === continent,
       );
-      zones.forEach((zone) => (game.map.zones[zone.name].owner = playerId));
+      zones.forEach((zone) => {
+        game.map.zones[zone.name].owner = playerId;
+        game.map.zones[zone.name].armies = 1;
+      });
     });
   }
   return game;

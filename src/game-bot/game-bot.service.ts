@@ -1,265 +1,237 @@
 import { Injectable } from '@nestjs/common';
 import { GameService } from '../game/game.service';
-import { Continent, Game, GameStatus, Zone } from '../game/types';
-import { cloneDeep, values, union, xor } from 'lodash';
+import { Game, GameStatus, TurnState } from '../game/types';
 import { EventLoggerService } from '../event-logger/event-logger.service';
-import { EventType } from '../event-logger/types';
+import { getMyZones, getTakenContinentsByEnemy } from './utils';
+import { getBestPathToBreakContinent } from './utils/get-best-path-to-break-continent';
+import { getAttackPathForContinent } from './utils/get-attack-path-for-continent';
+import { getBestAttackPathForContinent } from './utils/get-best-attack-path-for-continent';
+import { getPlacedArmiesWithEnemies } from './utils/get-placed-armies-with-enemies';
+import { getMinArmyEstimateAgainstPaths } from './utils/get-min-army-estimate-against-paths';
+import { rng } from '../utils/rng';
+import _ from 'lodash';
 
-enum Strategy {
+export enum Strategy {
   AttackOccupiedContinent = 'AttackOccupiedContinent',
   AttackUnclaimedContinent = 'AttackUnclaimedContinent',
-  AttackManyZones = 'AttackManyZones',
+  Defend = 'Defend',
   EliminatePlayers = 'EliminatePlayers',
 }
 
 @Injectable()
 export class GameBotService {
-  strategy: Strategy;
-  moveSequence: any;
+  mainAttack: { path?: string[]; strategy?: Strategy; army?: number } = {};
   constructor(
     private readonly gameService: GameService,
     private readonly eventLogger: EventLoggerService,
   ) {}
 
-  getTakenContinents(game: Game, botId: string): Continent<string, string>[] {
-    const continents = values(game.map.continents).filter(
-      (c) => c.owner && c.owner !== botId,
+  defineAttackPaths(game: Game, botId: string) {
+    const takenContinents = getTakenContinentsByEnemy(
+      game.map.continents,
+      botId,
     );
-    return continents;
-  }
-
-  getTakenContinentsConnectedToMyZones(
-    game: Game,
-    botId: string,
-    _continents: Continent<string, string>[],
-  ) {
-    const continents = _continents.filter((c) => {
-      const zones = this.getMyZonesConnectedToContinent(game, botId, c.name);
-      return zones.length > 0;
-    });
-    return continents;
-  }
-
-  getZonesConnectedToContinent(game: Game, continent: string) {
-    const continentZones = values(game.map.zones).filter((zone) => {
-      return zone.continent === continent;
-    });
-    const continentZonesNames = continentZones.map((zone) => zone.name);
-    const neighbours = continentZones.reduce(
-      (total, zone) => [...total, ...zone.neighbours],
-      [],
-    );
-    return xor(union(neighbours), continentZonesNames);
-  }
-
-  getMyZonesConnectedToContinent(game: Game, botId, continent: string) {
-    return this.getZonesConnectedToContinent(game, continent).filter((zone) => {
-      return game.map.zones[zone].owner === botId;
-    });
-  }
-
-  getEnemyZones(game: Game, botId: string) {
-    const zones = values(game.map.zones).filter((zone) => {
-      return zone.owner !== botId;
-    });
-    this.eventLogger.saveGameLogs({
-      gameId: game.gameId,
-      event: EventType.BOT_GET_ENEMY_ZONES,
-      data: zones.map((zone) => zone.name).join(','),
-    });
-    return cloneDeep(zones);
-  }
-
-  getMyZones(game: Game, botId: string) {
-    const zones = values(game.map.zones).filter((zone) => {
-      return zone.owner === botId;
-    });
-    this.eventLogger.saveGameLogs({
-      gameId: game.gameId,
-      event: EventType.BOT_GET_MY_ZONES,
-      data: zones.map((zone) => zone.name).join(','),
-    });
-    return cloneDeep(zones);
-  }
-
-  getZoneEnemies = (zone: Zone<string, string>, game: Game, botId: string) => {
-    const enemyZones = this.getEnemyZones(game, botId).map((z) => z.name);
-    const zonesWithNeighbours = zone.neighbours.filter((n) => {
-      return enemyZones.includes(n);
-    });
-    this.eventLogger.saveGameLogs({
-      gameId: game.gameId,
-      event: EventType.BOT_ZONE_ENEMIES,
-      data: zonesWithNeighbours,
-    });
-    return cloneDeep(zonesWithNeighbours);
-  };
-
-  // It returns all player's lands that connects with enemies.
-  // If all world is taken by player except Brazil, it should return 4 zones
-  // Peru, Venezuela, Argentina, North Africa
-  getZonesWithEnemies(game: Game, botId: string) {
-    const enemyZones = this.getEnemyZones(game, botId).map((z) => z.name);
-    const myZones = this.getMyZones(game, botId);
-    const zonesWithEnemies = myZones.filter((zone) => {
-      const hasEnemies = zone.neighbours.findIndex((n) => {
-        return enemyZones.includes(n);
-      });
-      return hasEnemies !== -1;
-    });
-    return cloneDeep(zonesWithEnemies);
-  }
-
-  choseStrategy(game: Game, botId: string) {
-    const takenContinents = this.getTakenContinents(game, botId);
-    console.log('continentIsTaken', takenContinents);
-    const connectingContinents = this.getTakenContinentsConnectedToMyZones(
+    const armiesThisTurn = game.armiesThisTurn;
+    let depth = Math.ceil(armiesThisTurn / 2);
+    depth = depth < 6 ? depth : 6;
+    const pathToBreakContinent = getBestPathToBreakContinent(
       game,
       botId,
-      takenContinents,
+      depth,
     );
-    console.log('continentIsTaken', takenContinents);
-    if (takenContinents.length > 0 && connectingContinents.length > 0) {
-      this.strategy = Strategy.AttackOccupiedContinent;
+
+    if (
+      takenContinents &&
+      pathToBreakContinent &&
+      pathToBreakContinent.army < 4
+    ) {
+      this.mainAttack = {
+        path: pathToBreakContinent.path,
+        strategy: Strategy.AttackOccupiedContinent,
+        army: game.armiesThisTurn,
+      };
     } else {
-      this.strategy = Strategy.AttackManyZones;
+      const path = getBestAttackPathForContinent(game, botId, depth);
+      this.mainAttack = {
+        path,
+        strategy: Strategy.AttackUnclaimedContinent,
+        army: game.armiesThisTurn,
+      };
     }
   }
 
-  useBot(game: Game, botId: string) {
-    this.choseStrategy(game, botId);
-    console.log(this.strategy);
-    this.placeArmies(game, botId);
-    this.attack(game);
+  buildNewAttackPath(
+    game: Game,
+    from: string,
+    playerId: string,
+    depth: number,
+  ) {
+    const { randomPath } = getAttackPathForContinent({
+      from,
+      playerId,
+      zones: game.map.zones,
+      noContinentFilter: true,
+      depth,
+    });
+    return randomPath;
+  }
+
+  useBot(game: Game, playerId: string) {
+    this.gameService.useCards(game.gameId, playerId);
+    this.defineAttackPaths(game, playerId);
+    this.placeArmies(game, playerId);
+    this.attack(game, playerId);
+    this.attackWithOtherArmies(game, playerId);
+    this.moveArmy(game, playerId);
     this.endTurn(game);
   }
 
-  placeArmies_AttackOccupiedContinent(
-    game: Game,
-    botId: string,
-    rand?: boolean,
-  ) {
-    const occupiedContinents = this.getTakenContinents(game, botId);
-    const connectedContinents = this.getTakenContinentsConnectedToMyZones(
-      game,
-      botId,
-      occupiedContinents,
-    );
-    const continentIndex = rand
-      ? Math.floor(Math.random() * connectedContinents.length)
-      : 0;
-    const continent = connectedContinents[continentIndex];
-    const myZones = this.getMyZonesConnectedToContinent(
-      game,
-      botId,
-      continent.name,
-    );
-    const zoneIndex = rand ? Math.floor(Math.random() * myZones.length) : 0;
-    const zone = myZones[zoneIndex];
-    this.gameService.placeArmies(game.gameId, botId, game.armiesThisTurn, zone);
-    this.eventLogger.saveGameLogs({
-      gameId: game.gameId,
-      event: EventType.BOT_PLACE_ARMIES,
-      data: {
-        strategy: this.strategy,
-        zone: zone,
-      },
-    });
-  }
-
-  placeArmies_AttackManyZones(game: Game, botId: string, rand?: boolean) {
-    const zonesWithEnemies = this.getZonesWithEnemies(game, botId);
-    const zoneIndex = rand
-      ? Math.floor(Math.random() * zonesWithEnemies.length)
-      : 0;
-    const zone = zonesWithEnemies[zoneIndex];
+  placeArmies(game: Game, playerId: string) {
+    if (game.gameStatus === GameStatus.Completed) return;
     this.gameService.placeArmies(
       game.gameId,
-      botId,
-      game.armiesThisTurn,
-      zone.name,
+      playerId,
+      this.mainAttack.army,
+      this.mainAttack.path[0],
     );
-    this.eventLogger.saveGameLogs({
-      gameId: game.gameId,
-      event: EventType.BOT_PLACE_ARMIES,
-      data: {
-        strategy: this.strategy,
-        zone: zone.name,
-      },
+  }
+
+  moveArmy(game: Game, playerId: string) {
+    if (game.gameStatus === GameStatus.Completed) return;
+    const allEntryPoints = _.flatten(
+      _.values(game.map.continents).map((c) => c.entryPoints),
+    );
+    const [armyToMove] = getMyZones(game.map.zones, playerId)
+      .filter((zone) => zone.armies > 1)
+      .filter((zone) => !allEntryPoints.includes(zone.name))
+      .filter((zone) => {
+        const hasEnemies = zone.neighbours.find((n) => {
+          return game.map.zones[n].owner !== playerId;
+        });
+        return !hasEnemies;
+      })
+      .sort((a, b) => (a.armies < b.armies ? 1 : -1));
+
+    if (!armyToMove) return;
+
+    let armySizeToMove = armyToMove.armies - 1;
+    if (armyToMove.armies > 7) armySizeToMove = 7;
+
+    this.gameService.setTurnState(game.gameId, TurnState.Move);
+
+    const zoneNeighboursWithEnemies = armyToMove.neighbours.filter((zone) => {
+      const hasEnemies = game.map.zones[zone].neighbours.find((n) => {
+        return game.map.zones[n].owner !== playerId;
+      });
+      return hasEnemies;
+    });
+    if (zoneNeighboursWithEnemies.length > 0) {
+      const to = rng.getRandomArrayItem(zoneNeighboursWithEnemies);
+      return this.gameService.moveArmy(
+        game.gameId,
+        playerId,
+        armySizeToMove,
+        armyToMove.name,
+        to,
+      );
+    }
+
+    const zoneNeighboursAsEntries = armyToMove.neighbours.filter((zone) => {
+      return allEntryPoints.includes(zone);
+    });
+    if (zoneNeighboursAsEntries.length > 0) {
+      const to = rng.getRandomArrayItem(zoneNeighboursAsEntries);
+      return this.gameService.moveArmy(
+        game.gameId,
+        playerId,
+        armySizeToMove,
+        armyToMove.name,
+        to,
+      );
+    }
+    const to = rng.getRandomArrayItem(armyToMove.neighbours);
+    this.gameService.moveArmy(
+      game.gameId,
+      playerId,
+      armySizeToMove,
+      armyToMove.name,
+      to,
+    );
+  }
+
+  attack(game: Game, playerId: string) {
+    if (game.gameStatus === GameStatus.Completed) return;
+    this.mainAttack.path.forEach((zone, i) => {
+      const from = zone;
+      const to = this.mainAttack.path[i + 1];
+      const amount = game.map.zones[from].armies - 1;
+      if (!to && amount >= 3) {
+        return this.continueAttack(game, playerId, from);
+      }
+      if (!from || !to || amount < 2) return;
+      if (game.map.zones[from].owner !== playerId) return;
+      this.gameService.attack({
+        gameId: game.gameId,
+        playerId,
+        from,
+        to,
+        amount: game.map.zones[from].armies - 1,
+      });
     });
   }
 
-  placeArmies(game: Game, botId: string) {
-    if (this.strategy === Strategy.AttackOccupiedContinent) {
-      this.placeArmies_AttackOccupiedContinent(game, botId, true);
-    } else {
-      this.placeArmies_AttackManyZones(game, botId, true);
-    }
-  }
-
-  attack(game: Game) {
-    const botId = game.currentPlayer.id;
-
-    const attack = () => {
-      const myZones = this.getZonesWithEnemies(game, botId)
-        .sort((a, b) => (a.armies > b.armies ? -1 : 1))
-        .filter((zone) => zone.armies > 1);
-      const zoneFrom = myZones[0];
-
-      if (myZones.length === values(game.map.zones).length) {
-        return;
-      }
-      if (!zoneFrom || zoneFrom.armies < 3) return;
-
-      const neighbourEnemies = this.getZoneEnemies(zoneFrom, game, botId);
-      const zoneTo = neighbourEnemies[0];
-
-      this.eventLogger.saveGameLogs({
-        gameId: game.gameId,
-        event: EventType.BOT_ATTACK,
-        data: {
-          from: zoneFrom.name,
-          to: zoneTo,
-          myZones: myZones.map((zone) => zone.name),
-          neighbourEnemies: neighbourEnemies,
-        },
-      });
-
-      /** Stop recursive attack if conditions are met:
-       * No neighbours enemies for this zone
-       * Army too small: 0,1,2
-       */
-      if (!zoneTo) {
-        return;
-      }
+  continueAttack(game: Game, playerId: string, zoneFrom: string) {
+    if (game.gameStatus === GameStatus.Completed) return;
+    const depth = Math.floor(game.map.zones[zoneFrom].armies / 2);
+    const path = this.buildNewAttackPath(game, zoneFrom, playerId, depth);
+    path.forEach((zone, i) => {
+      const from = zone;
+      const to = path[i + 1];
+      const amount = game.map.zones[from].armies - 1;
+      if (!from || !to || amount < 2) return;
+      if (game.gameStatus === GameStatus.Completed) return;
+      if (game.map.zones[from].owner !== playerId) return;
       this.gameService.attack({
         gameId: game.gameId,
-        playerId: botId,
-        amount: zoneFrom.armies - 1,
-        from: zoneFrom.name,
-        to: zoneTo,
+        playerId,
+        from,
+        to,
+        amount,
       });
-      attack();
-    };
-    attack();
+    });
+  }
+
+  attackWithOtherArmies(game: Game, playerId) {
+    if (game.gameStatus === GameStatus.Completed) return;
+    const placedArmiesWithEnemies = getPlacedArmiesWithEnemies(
+      game,
+      playerId,
+      4,
+    );
+    placedArmiesWithEnemies.forEach((zone) => {
+      const depth = Math.ceil(zone.armies / 2);
+      const path = this.buildNewAttackPath(game, zone.name, playerId, depth);
+      path.forEach((zone, i) => {
+        const from = zone;
+        const to = path[i + 1];
+        const amount = game.map.zones[from].armies - 1;
+        if (!from || !to || amount < 2) return;
+        if (game.gameStatus === GameStatus.Completed) return;
+        if (game.map.zones[from].owner !== playerId) return;
+        this.gameService.attack({
+          gameId: game.gameId,
+          playerId,
+          from,
+          to,
+          amount,
+        });
+      });
+    });
   }
 
   endTurn(game: Game) {
-    const prevPlayer = game.currentPlayer.id;
-    if (game.gameStatus !== GameStatus.InProgress) {
-      return;
-    }
-    const updatedGame = this.gameService.endTurn(
-      game.gameId,
-      game.currentPlayer.id,
-    );
-    this.eventLogger.saveGameLogs({
-      gameId: game.gameId,
-      event: EventType.END_TURN,
-      data: {
-        prevPlayer: prevPlayer,
-        nextPlayer: updatedGame.currentPlayer.id,
-      },
-    });
+    this.mainAttack = {};
+    if (game.gameStatus === GameStatus.Completed) return;
+    this.gameService.endTurn(game.gameId, game.currentPlayer.id);
   }
 }

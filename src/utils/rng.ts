@@ -1,6 +1,6 @@
 import Chance from 'chance';
 
-export const faker = {
+export const rng = {
   chance: new Chance(),
   createName() {
     const word1 = this.chance.word();
@@ -12,5 +12,10 @@ export const faker = {
 
   createIp() {
     return this.chance.ip();
+  },
+  getRandomArrayItem(array: any[]) {
+    const arrayLength = array.length;
+    const rand = Math.floor(Math.random() * arrayLength);
+    return array[rand];
   },
 };

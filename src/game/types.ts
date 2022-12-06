@@ -89,6 +89,10 @@ export interface Zone<Z, C> {
   continent: C;
 }
 
+export interface ZonesObject {
+  [key: string]: Zone<string, string>;
+}
+
 export interface Continent<C, Z> {
   name: C;
   reward: number;
