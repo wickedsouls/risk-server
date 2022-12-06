@@ -83,7 +83,6 @@ export class GameBotService {
     this.attack(game, playerId);
     this.attackWithOtherArmies(game, playerId);
     this.moveArmy(game, playerId);
-    this.endTurn(game);
   }
 
   placeArmies(game: Game, playerId: string) {
@@ -227,11 +226,5 @@ export class GameBotService {
         });
       });
     });
-  }
-
-  endTurn(game: Game) {
-    this.mainAttack = {};
-    if (game.gameStatus === GameStatus.Completed) return;
-    this.gameService.endTurn(game.gameId, game.currentPlayer.id);
   }
 }

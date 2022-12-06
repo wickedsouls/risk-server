@@ -118,7 +118,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     const chat = this.chatService.getMessagesForTheRoom(gameId);
     this.server.emit('set/GAMES', this.gameService.games);
     this.server.to(gameId).emit('set/START_GAME', game);
-    this.useGameBot(game, chat);
+    this.useGameBot(game, chat, socket);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/JOIN_GAME')
@@ -194,24 +194,45 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
   @CatchGatewayErrors()
   endTurn(@ConnectedSocket() socket: Socket<ServerToClientEvents>) {
     const { userId, room } = this.getUserData(socket);
+    const { currentPlayer } = this.gameService.games[room];
+    console.log('ending turn', 'userId', userId, 'current', currentPlayer);
     const game = this.gameService.endTurn(room, userId);
     const chat = this.chatService.getMessagesForTheRoom(room);
     this.server.to(room).emit('set/UPDATE_GAME', game);
-    this.useGameBot(game, chat);
+    this.useGameBot(game, chat, socket);
     return game;
   }
 
-  useGameBot(game: Game, chat: Message[]) {
+  useGameBot(game: Game, chat: Message[], socket: Socket) {
     const { isBot, id } = game.currentPlayer;
     if (!isBot) return;
-    this.gameBotService.useBot(game, id);
-    this.server.to(game.gameId).emit('set/BOT_ATTACK', { chat, game });
-    if (game.currentPlayer.isBot) {
-      setTimeout(() => {
-        this.useGameBot(game, chat);
-        this.server.to(game.gameId).emit('set/BOT_ATTACK', { chat, game });
-      }, 2000);
-    }
+    // this.gameBotService.useBot(game, id);;
+    setTimeout(() => {
+      this.gameService.useCards(game.gameId, id);
+      this.gameBotService.defineAttackPaths(game, id);
+      this.gameBotService.placeArmies(game, id);
+      this.server.to(game.gameId).emit('set/UPDATE_GAME', game);
+      this.server.to(game.gameId).emit('set/SELECT_ZONE_FROM', {
+        zone: this.gameBotService.mainAttack.path?.[0],
+      });
+    }, 1000);
+    setTimeout(() => {
+      this.gameBotService.attack(game, id);
+      this.gameBotService.attackWithOtherArmies(game, id);
+      this.server.to(game.gameId).emit('set/UPDATE_GAME', game);
+      this.server.to(game.gameId).emit('set/MESSAGES', chat);
+      this.server.to(game.gameId).emit('set/SELECT_ZONE_FROM', {
+        zone: undefined,
+      });
+    }, 2000);
+    setTimeout(() => {
+      this.gameBotService.moveArmy(game, id);
+      this.server.to(game.gameId).emit('set/UPDATE_GAME', game);
+    }, 4000);
+    setTimeout(() => {
+      this.endTurn(socket);
+      this.server.to(game.gameId).emit('set/UPDATE_GAME', game);
+    }, 5000);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/PLACE_ARMIES')
@@ -251,8 +272,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
     this.server.emit('set/UPDATE_GAME', game);
     const message = this.chatService.setMessage('has surrendered', room, user);
     this.server.to(room).emit('set/MESSAGE', message);
-    const chat = this.chatService.getMessagesForTheRoom(room);
-    this.useGameBot(game, chat);
+    if (game.currentPlayer.id === userId) this.endTurn(socket);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/ATTACK_PLAYER')
@@ -296,7 +316,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayInit {
       zoneTo,
     );
     this.server.to(room).emit('set/UPDATE_GAME', game);
-    this.useGameBot(game, chat);
+    this.useGameBot(game, chat, socket);
   }
 
   @SubscribeMessage<keyof ClientToServerEvents>('request/SELECT_ZONE_FROM')
