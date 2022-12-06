@@ -32,7 +32,13 @@ const LogEvents = (): MethodDecorator => {
 
 @WebSocketGateway({
   namespace: '/game',
-  cors: { origin: ['http://localhost:3000', 'http://192.168.1.154:3000'] },
+  cors: {
+    origin: [
+      'http://localhost:3000',
+      'http://192.168.1.154:3000',
+      'http://89.40.13.211',
+    ],
+  },
 })
 export class GameGateway implements OnGatewayConnection {
   @WebSocketServer()
