@@ -37,6 +37,7 @@ const LogEvents = (): MethodDecorator => {
       'http://localhost:3000',
       'http://192.168.1.154:3000',
       'http://89.40.13.211',
+      'http://89.40.13.211:5000',
     ],
   },
 })
